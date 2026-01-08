@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password         String?
+  firstName        String?
+  lastName         String?
+  phone            String?
+  stripeCustomerId String?
+  createdAt        DateTime @default(now())
+  role             Role     @default(CLIENT)
+  filedEntities    FiledEntity[] // Relation to tracked entities
+  filings          Filing[]
+}
+
+enum Role {
+  ADMIN
+  FILER
+  CLIENT
+}
+
+model BusinessDocument {
+  id                  Int      @id @default(autoincrement())
+  documentNumber      String   @unique // The "docId" from Sunbiz
+  email               String?
+  companyType         String
+  companyName         String
+  ein                 String?
+  dateFiled           DateTime
+  state               String
+  active              Boolean
+  principalAddress    String
+  registeredAgentName String
+  
+  // Officer fields explicitly requested
+  firstOfficerName    String?
+  firstOfficerTitle   String?
+  secondOfficerName   String?
+  secondOfficerTitle  String?
+  
+  cachedAt            DateTime @default(now())
+  
+  filedEntities       FiledEntity[] // Relation: One Doc can be tracked by multiple users? Or 1:1? Usually 1:Many if multiple users track same biz.
+}
+
+model FiledEntity {
+  id              Int      @id @default(autoincrement())
+  businessName    String
+  
+  documentNumber  String
+  businessDoc     BusinessDocument @relation(fields: [documentNumber], references: [documentNumber])
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  inCompliance    Boolean @default(false)
+  lastFiled       DateTime?
+  
+  filings         Filing[]
+  
+  @@unique([userId, documentNumber])
+  @@index([userId])
+}
+
+model Filing {
+  id               Int      @id @default(autoincrement())
+  
+  businessId       Int
+  entity           FiledEntity @relation(fields: [businessId], references: [id])
+  
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  
+  year             Int
+  status           String   // "PENDING", "PAID", "PROCESSING", "SUCCESS", "FAILED", "MANUAL_REVIEW"
+  invoiceNumber    String?
+  
+  stripeSessionId  String?
+  sunbizReceiptUrl String?
+  payloadSnapshot  Json?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  errorMessage     String?
+  artifacts        Artifact[]
+  
+  @@index([businessId])
+  @@index([userId])
+}
+
+model Artifact {
+  id        String   @id @default(cuid())
+  filingId  Int
+  filing    Filing   @relation(fields: [filingId], references: [id])
+  type      String
+  path      String
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   // "true" or "false"
+  description String?
+  updatedAt   DateTime @updatedAt
+}
