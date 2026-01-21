@@ -7,20 +7,23 @@ export interface BrandConfig {
     name: string
     theme: BrandTheme
     description: string
+    email: string
 }
 
 export const brands: Record<string, BrandConfig> = {
     "blue": {
         id: "blue",
-        name: "Official Compliance Services",
+        name: "Business Annual Report Filing, LLC",
         theme: "blue",
         description: "The trusted source for your annual filing needs.",
+        email: "businessannualreportfiling@gmail.com",
     },
     "green": {
         id: "green",
         name: "ComplianceFlow Modern",
         theme: "green",
         description: "Fast, automated, and secure filing for your business.",
+        email: "businessannualreportfiling@gmail.com",
     },
 }
 

@@ -105,7 +105,7 @@ export function FilingHistoryDialog({ businessName, filings }: FilingHistoryProp
                                         {new Date(filing.createdAt).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        ComplianceFlow
+                                        Business Annual Report Filing
                                     </TableCell>
                                     <TableCell className="text-right space-x-2">
                                         {filing.sunbizReceiptUrl && (

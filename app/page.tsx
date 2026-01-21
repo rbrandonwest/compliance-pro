@@ -72,12 +72,7 @@ export default async function Home() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t py-8 bg-muted/30">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} {brand.name}. All rights reserved.
-        </div>
-      </footer>
+
     </div>
   )
 }

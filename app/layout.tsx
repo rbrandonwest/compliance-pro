@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { Providers } from "@/components/providers";
 
 const geistSans = Geist({
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ComplianceFlow",
+  title: "Business Annual Report Filing",
   description: "Florida Annual Report Filing Automation",
 };
 
@@ -35,6 +36,7 @@ export default async function RootLayout({
           <main>
             {children}
           </main>
+          <Footer />
         </Providers>
       </body>
     </html>
