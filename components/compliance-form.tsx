@@ -77,7 +77,12 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
         try {
             // 1. Handle Registration if needed
-            if (!session && data.email && data.password) {
+            if (!session) {
+                if (!data.email || !data.password) {
+                    alert("Please enter an email and password to create your account.");
+                    return;
+                }
+
                 const { registerUser } = await import("@/app/actions/auth");
                 const regResult = await registerUser(data.email, data.password);
 
