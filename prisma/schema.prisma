@@ -121,3 +121,27 @@ model PasswordResetToken {
 
   @@unique([email, token])
 }
+
+// Staging table for large CSV imports
+model RawBusinessImport {
+  id Int @id @default(autoincrement())
+  
+  // CSV Column Order
+  number              String?
+  email               String?
+  companyType         String? // "Type Of Company"
+  companyName         String? // "Name Of The Company"
+  documentNumber      String? // "Doc Number"
+  ein                 String? // "FEI/EIN Number"
+  dateFiled           String? // "Date Filed"
+  state               String?
+  status              String? // "Status"
+  principalAddress    String? // "Principal Address"
+  registeredAgentName String? // "Registered Agent Name"
+  firstOfficerName    String? // "First Officer Name"
+  firstOfficerTitle   String? // "First Officer Title"
+  secondOfficerName   String? // "Second Officer Name"
+  secondOfficerTitle  String? // "Second Officer Title"
+
+  processed Boolean @default(false)
+}
