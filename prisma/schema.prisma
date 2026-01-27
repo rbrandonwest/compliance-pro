@@ -49,6 +49,12 @@ model BusinessDocument {
   cachedAt            DateTime @default(now())
   
   filedEntities       FiledEntity[] // Relation: One Doc can be tracked by multiple users? Or 1:1? Usually 1:Many if multiple users track same biz.
+
+  @@index([companyName])
+  @@index([ein])
+  @@index([registeredAgentName])
+  @@index([firstOfficerName])
+  @@index([firstOfficerTitle])
 }
 
 model FiledEntity {
