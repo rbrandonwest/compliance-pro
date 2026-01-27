@@ -45,6 +45,12 @@ const formSchema = z.object({
 export function ComplianceForm({ entity }: { entity: EntityData }) {
     const [step, setStep] = useState(1)
 
+    const [isEditingHeader, setIsEditingHeader] = useState(false)
+    const [headerValues, setHeaderValues] = useState({
+        docId: entity.docId,
+        ein: entity.ein
+    })
+
     const { data: session } = useSession()
 
     const form = useForm({
@@ -106,7 +112,10 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
             // 2. Process Checkout
             const { createCheckoutSession } = await import("@/app/actions/checkout");
-            const result = await createCheckoutSession(entity.docId, {});
+            // Pass the potentially edited docId and include EIN in payload
+            const result = await createCheckoutSession(headerValues.docId, {
+                ein: headerValues.ein
+            });
 
             if (result.success && result.url) {
                 // Redirect to Stripe Checkout
@@ -148,9 +157,51 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
             <Card className="shadow-lg border-muted">
                 <CardHeader className="bg-muted/30 pb-4">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <CardTitle className="text-xl">{entity.name}</CardTitle>
-                            <CardDescription>Document ID: {entity.docId} • EIN: {entity.ein}</CardDescription>
+                        <div className="flex-1">
+                            <CardTitle className="text-xl mb-1">{entity.name}</CardTitle>
+                            {!isEditingHeader ? (
+                                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                    <span>Document ID: {headerValues.docId}</span>
+                                    <span>•</span>
+                                    <span>EIN: {headerValues.ein}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 ml-1 opacity-70 hover:opacity-100"
+                                        onClick={() => setIsEditingHeader(true)}
+                                    >
+                                        <div className="sr-only">Edit</div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                                            <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+                                            <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+                                        </svg>
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col sm:flex-row gap-3 mt-2 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="doc-id-edit" className="text-xs">Document ID</Label>
+                                        <Input
+                                            id="doc-id-edit"
+                                            value={headerValues.docId}
+                                            onChange={(e) => setHeaderValues(prev => ({ ...prev, docId: e.target.value }))}
+                                            className="h-8 text-sm w-32"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="ein-edit" className="text-xs">EIN</Label>
+                                        <Input
+                                            id="ein-edit"
+                                            value={headerValues.ein}
+                                            onChange={(e) => setHeaderValues(prev => ({ ...prev, ein: e.target.value }))}
+                                            className="h-8 text-sm w-32"
+                                        />
+                                    </div>
+                                    <div className="flex items-end pb-0.5 gap-1">
+                                        <Button size="sm" onClick={() => setIsEditingHeader(false)}>Save</Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <Badge variant="outline" className="bg-background">{entity.currentYear} Annual Report</Badge>
                     </div>

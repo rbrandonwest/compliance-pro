@@ -26,9 +26,14 @@ export async function createCheckoutSession(docId: string, payload: any) {
     }
 
     // 2. Fetch/Upsert Business Data (Mocking scrape result mostly for now)
+    // Extract EIN from payload if provided (from edit form)
+    const ein = payload?.ein;
+
     const busDoc = await prisma.businessDocument.upsert({
         where: { documentNumber: docId },
-        update: {},
+        update: {
+            ...(ein ? { ein } : {})
+        },
         create: {
             documentNumber: docId,
             companyName: "MOCK CORP INC",
@@ -40,7 +45,8 @@ export async function createCheckoutSession(docId: string, payload: any) {
             registeredAgentName: "John Doe",
             email: "mock@example.com",
             firstOfficerName: "Jane Doe",
-            firstOfficerTitle: "P"
+            firstOfficerTitle: "P",
+            ein: ein || null // Use provided EIN or null
         }
     });
 
