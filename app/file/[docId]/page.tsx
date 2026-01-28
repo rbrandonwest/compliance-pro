@@ -1,22 +1,30 @@
 import { ComplianceForm, EntityData } from "@/components/compliance-form"
 import { notFound } from "next/navigation"
 
-// Mock Data Service
+import prisma from "@/lib/prisma"
+
+// Real Data Service
 const getEntity = async (docId: string): Promise<EntityData | null> => {
-    // Simulator: In real app, prisma.entity.findUnique(...)
-    if (docId === "P15000085255") {
-        return {
-            docId,
-            name: "VAN STEPHEN SALIBA, P.A.",
-            ein: "00-0000000",
-            principalAddress: "123 Main St, Miami, FL 33101",
-            mailingAddress: "123 Main St, Miami, FL 33101",
-            registeredAgentName: "VAN STEPHEN SALIBA",
-            registeredAgentAddress: "123 Main St, Miami, FL 33101",
-            currentYear: 2025
-        }
+    const doc = await prisma.businessDocument.findUnique({
+        where: { documentNumber: docId }
+    });
+
+    if (!doc) return null;
+
+    return {
+        docId: doc.documentNumber,
+        name: doc.companyName,
+        ein: doc.ein || "",
+        principalAddress: doc.principalAddress,
+        mailingAddress: doc.principalAddress, // Fallback if no specific mailing address column yet
+        registeredAgentName: doc.registeredAgentName,
+        registeredAgentAddress: doc.principalAddress, // Fallback as RA address isn't separate in schema yet? Check schema.
+        currentYear: new Date().getFullYear(),
+        officers: [
+            ...(doc.firstOfficerName ? [{ name: doc.firstOfficerName, title: doc.firstOfficerTitle || "Officer", address: doc.principalAddress }] : []),
+            ...(doc.secondOfficerName ? [{ name: doc.secondOfficerName, title: doc.secondOfficerTitle || "Officer", address: doc.principalAddress }] : [])
+        ]
     }
-    return null
 }
 
 type Props = {

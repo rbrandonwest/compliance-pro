@@ -25,6 +25,7 @@ export type EntityData = {
     registeredAgentName: string
     registeredAgentAddress: string
     currentYear: number
+    officers?: { name: string; title: string; address: string }[]
 }
 
 const formSchema = z.object({
@@ -63,7 +64,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
         defaultValues: {
             principalAddress: entity.principalAddress,
             mailingAddress: entity.mailingAddress || entity.principalAddress,
-            officers: [
+            officers: entity.officers && entity.officers.length > 0 ? entity.officers : [
                 { name: entity.registeredAgentName || "", title: "P", address: entity.principalAddress }
             ],
             registeredAgent: {
