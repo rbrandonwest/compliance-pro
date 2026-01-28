@@ -10,22 +10,14 @@ export async function GET(request: Request) {
     }
 
     try {
-        const results = await prisma.businessDocument.findMany({
-            where: {
-                companyName: {
-                    startsWith: query, // Database index on LOWER() handles this now
-                    mode: 'insensitive',
-                },
-                // Removed "active: true" to ensure index usage (avoid bitmap scan)
-            },
-            take: 50, // Fetch more candidates, filter in memory
-            select: {
-                documentNumber: true,
-                companyName: true,
-                active: true,
-            },
-            // Removed ORDER BY to ensure index usage
-        })
+        // Use Raw SQL to guarantee usage of the 'lower(companyName)' index.
+        // Prisma's 'mode: insensitive' can sometimes generate ILIKE which misses the functional index.
+        const results = await prisma.$queryRaw<{ documentNumber: string; companyName: string; active: boolean }[]>`
+            SELECT "documentNumber", "companyName", "active"
+            FROM "BusinessDocument"
+            WHERE lower("companyName") LIKE ${query.toLowerCase() + '%'}
+            LIMIT 50;
+        `;
 
         // Optimized In-Memory Processing
         const formattedResults = results
