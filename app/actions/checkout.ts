@@ -91,17 +91,32 @@ export async function createCheckoutSession(docId: string, payload: any) {
                     },
                     quantity: 1,
                 },
-                {
-                    price_data: {
-                        currency: 'usd',
-                        product_data: {
-                            name: 'Service Fee',
-                            description: 'ComplianceFlow Processing',
+                // Dynamic Line Items based on Service Selection
+                ...(payload.addRaService ? [
+                    {
+                        price_data: {
+                            currency: 'usd',
+                            product_data: {
+                                name: 'Registered Agent Service',
+                                description: 'Annual Registered Agent Service (Includes waived Service Fee)',
+                            },
+                            unit_amount: 9900, // $99.00
                         },
-                        unit_amount: 4900, // $49.00
-                    },
-                    quantity: 1,
-                },
+                        quantity: 1,
+                    }
+                ] : [
+                    {
+                        price_data: {
+                            currency: 'usd',
+                            product_data: {
+                                name: 'Service Fee',
+                                description: 'ComplianceFlow Processing',
+                            },
+                            unit_amount: 4900, // $49.00
+                        },
+                        quantity: 1,
+                    }
+                ]),
             ],
             mode: 'payment',
             success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?filed=true&session_id={CHECKOUT_SESSION_ID}`,

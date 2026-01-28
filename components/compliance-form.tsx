@@ -367,8 +367,16 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Service Fee</span>
-                                        <span>$49.00</span>
+                                        {/* Waive service fee if RA added */}
+                                        <span>{form.watch("addRaService") ? <span className="text-green-600 font-medium">$0.00 (Waived)</span> : "$49.00"}</span>
                                     </div>
+
+                                    {form.watch("addRaService") && (
+                                        <div className="flex justify-between animate-in fade-in slide-in-from-top-2">
+                                            <span>Registered Agent Service</span>
+                                            <span>$99.00</span>
+                                        </div>
+                                    )}
 
                                     <Separator />
 
@@ -384,16 +392,21 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                                 Add Registered Agent Service (+$99/yr)
                                             </label>
                                             <p className="text-xs text-muted-foreground">
-                                                We scan and upload your legal mail instantly. Keeps your address private.
+                                                We scan and upload your legal mail instantly. Keeps your address private. Includes waived service fee.
                                             </p>
                                         </div>
                                     </div>
 
                                     <Separator />
 
-                                    <div className="flex justify-between font-bold text-lg">
-                                        <span>Total Due</span>
-                                        <span>${(199 + (form.watch("addRaService") ? 99 : 0)).toFixed(2)}</span>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between font-bold text-lg">
+                                            <span>Total Due</span>
+                                            <span>${(150 + (form.watch("addRaService") ? 99 : 49)).toFixed(2)}</span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground text-right italic">
+                                            Includes recurring annual billing for filing + service.
+                                        </p>
                                     </div>
                                 </div>
 
