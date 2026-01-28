@@ -399,15 +399,15 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                     <Separator />
 
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between font-bold text-lg">
-                                            <span>Total Due</span>
-                                            <span>${(150 + (form.watch("addRaService") ? 99 : 49)).toFixed(2)}</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground text-right italic">
+                                    <div className="flex justify-between font-bold text-lg">
+                                        <span>Total Due</span>
+                                        <span>${(150 + (form.watch("addRaService") ? 99 : 49)).toFixed(2)}</span>
+                                    </div>
+                                    {form.watch("addRaService") && (
+                                        <p className="text-xs text-muted-foreground text-right italic animate-in fade-in">
                                             Includes recurring annual billing for filing + service.
                                         </p>
-                                    </div>
+                                    )}
                                 </div>
 
                                 {/* Terms & Conditions */}
@@ -449,6 +449,6 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                     </Button>
                 </CardFooter>
             </Card>
-        </div>
+        </div >
     )
 }
