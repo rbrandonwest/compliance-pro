@@ -16,27 +16,26 @@ export async function GET(request: Request) {
                     startsWith: query, // Database index on LOWER() handles this now
                     mode: 'insensitive',
                 },
-                active: true, // Only show active companies? Or irrelevant? User didn't specify, but safer to find all.
+                // Removed "active: true" to ensure index usage (avoid bitmap scan)
             },
-            take: 10,
+            take: 50, // Fetch more candidates, filter in memory
             select: {
                 documentNumber: true,
                 companyName: true,
-                active: true, // User might want to see if it's active
+                active: true,
             },
-            orderBy: {
-                companyName: 'asc',
-            },
+            // Removed ORDER BY to ensure index usage
         })
 
-        // If startsWith yields too few results, fallback to contains? 
-        // For large datasets, contains is slow (scan). Stick to startsWith for now.
-
-        const formattedResults = results.map(doc => ({
-            ...doc,
-            status: doc.active ? "Active" : "Inactive"
-            // Let's check schema. `active` is boolean.
-        }))
+        // Optimized In-Memory Processing
+        const formattedResults = results
+            .filter(doc => doc.active) // Filter for active companies in memory
+            .sort((a, b) => a.companyName.localeCompare(b.companyName)) // Sort in memory
+            .slice(0, 10) // Take top 10
+            .map(doc => ({
+                ...doc,
+                status: "Active"
+            }))
 
         return NextResponse.json({ results: formattedResults })
     } catch (error) {
