@@ -392,7 +392,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                                 Add Registered Agent Service (+$99/yr)
                                             </label>
                                             <p className="text-xs text-muted-foreground">
-                                                We scan and upload your legal mail instantly. Keeps your address private. Includes waived service fee.
+                                                Worry-free compliance. We automatically handle your annual report filing every year so you never miss a deadline.
                                             </p>
                                         </div>
                                     </div>
