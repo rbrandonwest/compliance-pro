@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-// Initialize Resend with the API key
-// If the key is missing in dev, it might throw or just fail on send, so we can mock or warn if needed.
-// For now, simple initialization is standard.
-export const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend with the API key.
+// If the key is missing (e.g. in dev), we mock the client to prevent runtime errors during email sending.
+export const resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : {
+        emails: {
+            send: async (params: any) => {
+                console.log("[DEV] Mock Email Sent:", params);
+                return { id: "mock_email_id", error: null };
+            }
+        }
+    } as unknown as Resend;

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Check, Shield, Users, CreditCard } from "lucide-react"
+import { Check, Shield, Users, CreditCard, FileText } from "lucide-react"
 
 import { signIn, useSession } from "next-auth/react"
 
@@ -35,6 +35,11 @@ const formSchema = z.object({
         title: z.string().min(1, "Title required"),
         address: z.string().min(5, "Address required"),
     })),
+    registeredAgent: z.object({
+        name: z.string().min(1, "RA Name required"),
+        address: z.string().min(5, "RA Address required"),
+    }),
+    termsAccepted: z.boolean().refine(val => val === true, "You must agree to the terms to proceed."),
     addRaService: z.boolean().default(false),
     email: z.string().optional(),
     password: z.string().optional(),
@@ -57,10 +62,15 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
         resolver: zodResolver(formSchema),
         defaultValues: {
             principalAddress: entity.principalAddress,
-            mailingAddress: entity.mailingAddress,
+            mailingAddress: entity.mailingAddress || entity.principalAddress,
             officers: [
-                { name: "VAN STEPHEN SALIBA", title: "P", address: entity.principalAddress } // Mock initial officer
+                { name: entity.registeredAgentName || "", title: "P", address: entity.principalAddress }
             ],
+            registeredAgent: {
+                name: entity.registeredAgentName || "",
+                address: entity.registeredAgentAddress || entity.principalAddress
+            },
+            termsAccepted: false,
             addRaService: false,
             email: "",
             password: ""
@@ -75,12 +85,21 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
         name: "officers"
     })
 
-    const onSubmit = async (data: FormValues) => {
-        if (step < 3) {
-            setStep(step + 1)
-            return
+    const handleNext = async () => {
+        let valid = false;
+        if (step === 1) {
+            valid = await form.trigger(["principalAddress", "mailingAddress"]);
+        } else if (step === 2) {
+            valid = await form.trigger(["officers", "registeredAgent"]);
         }
 
+        if (valid) {
+            setStep(step + 1);
+            window.scrollTo(0, 0);
+        }
+    };
+
+    const onSubmit = async (data: FormValues) => {
         try {
             // 1. Handle Registration if needed
             if (!session) {
@@ -112,10 +131,13 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
             // 2. Process Checkout
             const { createCheckoutSession } = await import("@/app/actions/checkout");
-            // Pass the potentially edited docId and include EIN in payload
-            const result = await createCheckoutSession(headerValues.docId, {
-                ein: headerValues.ein
-            });
+            // Pass the potentially edited docId, include EIN, and FULL DATA in payload
+            const payload = {
+                ein: headerValues.ein,
+                ...data
+            };
+
+            const result = await createCheckoutSession(headerValues.docId, payload);
 
             if (result.success && result.url) {
                 // Redirect to Stripe Checkout
@@ -144,12 +166,12 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                     <div className="h-px bg-border flex-1" />
                     <div className={`flex items-center gap-2 ${step >= 2 ? "text-primary" : ""}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= 2 ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground"}`}>2</div>
-                        Officers
+                        Roles
                     </div>
                     <div className="h-px bg-border flex-1" />
                     <div className={`flex items-center gap-2 ${step >= 3 ? "text-primary" : ""}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= 3 ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground"}`}>3</div>
-                        Review & Pay
+                        Review
                     </div>
                 </div>
             </div>
@@ -221,50 +243,84 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                     <Label>Principal Address</Label>
                                     <Input {...form.register("principalAddress")} />
                                     <p className="text-[0.8rem] text-muted-foreground">This must be a street address.</p>
+                                    {form.formState.errors.principalAddress && <p className="text-destructive text-sm">{form.formState.errors.principalAddress.message}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>Mailing Address</Label>
                                     <Input {...form.register("mailingAddress")} />
+                                    {form.formState.errors.mailingAddress && <p className="text-destructive text-sm">{form.formState.errors.mailingAddress.message}</p>}
                                 </div>
                             </div>
                         )}
 
-                        {/* Step 2: Officers */}
+                        {/* Step 2: Officers & RA */}
                         {step === 2 && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Users className="w-5 h-5 text-primary" />
-                                    <h3 className="font-semibold text-lg">Officer & Director Management</h3>
-                                </div>
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
 
-                                {fields.map((field, index) => (
-                                    <div key={field.id} className="grid gap-4 p-4 border rounded-lg bg-muted/10 relative">
+                                {/* Registered Agent Section */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Shield className="w-5 h-5 text-primary" />
+                                        <h3 className="font-semibold text-lg">Registered Agent</h3>
+                                    </div>
+                                    <div className="grid gap-4 p-4 border rounded-lg bg-muted/5">
                                         <div className="grid grid-cols-12 gap-4">
-                                            <div className="col-span-12 sm:col-span-4">
-                                                <Label>Role/Title</Label>
-                                                <Input {...form.register(`officers.${index}.title`)} placeholder="e.g. P, VP, D" />
-                                            </div>
-                                            <div className="col-span-12 sm:col-span-8">
+                                            <div className="col-span-12 sm:col-span-12">
                                                 <Label>Name</Label>
-                                                <Input {...form.register(`officers.${index}.name`)} placeholder="Full Name" />
+                                                <Input {...form.register("registeredAgent.name")} />
+                                                {form.formState.errors.registeredAgent?.name && <p className="text-destructive text-sm">{form.formState.errors.registeredAgent.name.message}</p>}
                                             </div>
                                             <div className="col-span-12">
                                                 <Label>Address</Label>
-                                                <Input {...form.register(`officers.${index}.address`)} placeholder="Address" />
+                                                <Input {...form.register("registeredAgent.address")} />
+                                                <p className="text-[0.8rem] text-muted-foreground">Must be a Florida street adddress.</p>
+                                                {form.formState.errors.registeredAgent?.address && <p className="text-destructive text-sm">{form.formState.errors.registeredAgent.address.message}</p>}
                                             </div>
                                         </div>
-                                        {fields.length > 1 && (
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
-                                                Remove
-                                            </Button>
-                                        )}
                                     </div>
-                                ))}
+                                </div>
 
-                                <Button type="button" variant="outline" onClick={() => append({ name: "", title: "", address: "" })} className="w-full border-dashed">
-                                    + Add Officer / Director
-                                </Button>
+                                <Separator />
+
+                                {/* Officers Section */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Users className="w-5 h-5 text-primary" />
+                                        <h3 className="font-semibold text-lg">Officers & Directors</h3>
+                                    </div>
+
+                                    {fields.map((field, index) => (
+                                        <div key={field.id} className="grid gap-4 p-4 border rounded-lg bg-muted/10 relative">
+                                            <div className="grid grid-cols-12 gap-4">
+                                                <div className="col-span-12 sm:col-span-4">
+                                                    <Label>Role/Title</Label>
+                                                    <Input {...form.register(`officers.${index}.title`)} placeholder="e.g. P, VP, D" />
+                                                    {form.formState.errors.officers?.[index]?.title && <p className="text-destructive text-sm">{form.formState.errors.officers[index].title.message}</p>}
+                                                </div>
+                                                <div className="col-span-12 sm:col-span-8">
+                                                    <Label>Name</Label>
+                                                    <Input {...form.register(`officers.${index}.name`)} placeholder="Full Name" />
+                                                    {form.formState.errors.officers?.[index]?.name && <p className="text-destructive text-sm">{form.formState.errors.officers[index].name.message}</p>}
+                                                </div>
+                                                <div className="col-span-12">
+                                                    <Label>Address</Label>
+                                                    <Input {...form.register(`officers.${index}.address`)} placeholder="Address" />
+                                                    {form.formState.errors.officers?.[index]?.address && <p className="text-destructive text-sm">{form.formState.errors.officers[index].address.message}</p>}
+                                                </div>
+                                            </div>
+                                            {fields.length > 1 && (
+                                                <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    <Button type="button" variant="outline" onClick={() => append({ name: "", title: "", address: "" })} className="w-full border-dashed">
+                                        + Add Officer / Director
+                                    </Button>
+                                </div>
                             </div>
                         )}
 
@@ -339,6 +395,28 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                         <span>${(199 + (form.watch("addRaService") ? 99 : 0)).toFixed(2)}</span>
                                     </div>
                                 </div>
+
+                                {/* Terms & Conditions */}
+                                <div className="flex items-start space-x-2 pt-2">
+                                    <Checkbox
+                                        id="terms"
+                                        checked={form.watch("termsAccepted")}
+                                        onCheckedChange={(c) => form.setValue("termsAccepted", c as boolean)}
+                                    />
+                                    <div className="grid gap-1.5 leading-none">
+                                        <label
+                                            htmlFor="terms"
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                            Legal Certification & Agreement
+                                        </label>
+                                        <p className="text-xs text-muted-foreground leading-relaxed">
+                                            By checking this box, I hereby certify that I am authorized to execute this application and that the information supplied is true and accurate. I acknowledge that this service is not affiliated with any government entity and allow US Filing Services to file on my behalf. I understand that submitting false information is a felony. I agree to the <a href="/terms" className="underline">Terms of Service</a>.
+                                        </p>
+                                        {form.formState.errors.termsAccepted && <p className="text-destructive text-xs font-semibold">{form.formState.errors.termsAccepted.message}</p>}
+                                    </div>
+                                </div>
+
                             </div>
                         )}
                     </form>
@@ -352,7 +430,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                         <div />
                     )}
 
-                    <Button onClick={form.handleSubmit(onSubmit)} className="min-w-[120px]">
+                    <Button onClick={step === 3 ? form.handleSubmit(onSubmit) : handleNext} className="min-w-[120px]">
                         {step === 3 ? (form.formState.isSubmitting ? "Processing..." : "Pay & File Now") : "Next Step"}
                     </Button>
                 </CardFooter>

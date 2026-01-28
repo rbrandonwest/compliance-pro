@@ -73,40 +73,56 @@ export default async function WorkbenchPage({ params }: { params: { filingId: st
                     </section>
 
                     <section>
-                        <h3 className="font-semibold mb-2">Officers</h3>
-                        <div className="text-sm space-y-2 border rounded p-2 bg-background">
-                            {doc.firstOfficerName && (
-                                <div>
-                                    <div className="font-medium text-xs text-muted-foreground">{doc.firstOfficerTitle}</div>
-                                    <div>{doc.firstOfficerName}</div>
-                                </div>
-                            )}
-                            {doc.secondOfficerName && (
-                                <div className="mt-2">
-                                    <div className="font-medium text-xs text-muted-foreground">{doc.secondOfficerTitle}</div>
-                                    <div>{doc.secondOfficerName}</div>
-                                </div>
-                            )}
-                            {!doc.firstOfficerName && <div className="text-muted-foreground">No officer data in record. Check snapshot.</div>}
-                        </div>
-                    </section>
-
-                    <section>
-                        <h3 className="font-semibold mb-2">Mailing Address (Snapshot)</h3>
+                        <h3 className="font-semibold mb-2 flex items-center justify-between">
+                            Mailing Address
+                            {snap.mailingAddress && <Badge variant="outline" className="text-[10px] h-5">User Provided</Badge>}
+                        </h3>
                         <div className="text-sm border rounded p-2 bg-background">
                             {snap.mailingAddress || "No override provided."}
                         </div>
                     </section>
 
                     <section>
-                        <h3 className="font-semibold mb-2">Helpful Links</h3>
-                        <a
-                            href={`https://search.sunbiz.org/Inquiry/CorporationSearch/ByName`}
-                            target="_blank"
-                            className="text-blue-600 hover:underline text-sm flex items-center gap-1"
-                        >
-                            <ExternalLink className="w-3 h-3" /> Sunbiz Search
-                        </a>
+                        <h3 className="font-semibold mb-2 flex items-center justify-between">
+                            Registered Agent
+                            {snap.registeredAgent && <Badge variant="outline" className="text-[10px] h-5">User Provided</Badge>}
+                        </h3>
+                        {snap.registeredAgent ? (
+                            <div className="text-sm border rounded p-2 bg-background space-y-2">
+                                <div><span className="text-muted-foreground text-xs">Name:</span> {snap.registeredAgent.name}</div>
+                                <div><span className="text-muted-foreground text-xs">Address:</span> {snap.registeredAgent.address}</div>
+                            </div>
+                        ) : (
+                            <div className="text-sm border rounded p-2 bg-background text-muted-foreground">
+                                No RA data in snapshot.
+                            </div>
+                        )}
+                    </section>
+
+                    <section>
+                        <h3 className="font-semibold mb-2">Officers</h3>
+                        <div className="text-sm space-y-2 border rounded p-2 bg-background">
+                            {snap.officers && Array.isArray(snap.officers) && snap.officers.length > 0 ? (
+                                snap.officers.map((officer: any, idx: number) => {
+                                    const labels = ["One", "Two", "Three", "Four", "Five"];
+                                    const label = labels[idx] ? `Officer ${labels[idx]}` : `Officer ${idx + 1}`;
+
+                                    return (
+                                        <div key={idx} className={idx > 0 ? "pt-2 border-t mt-2" : ""}>
+                                            <div className="font-medium text-xs text-primary mb-1">{label}</div>
+                                            <div className="font-medium">{officer.name}</div>
+                                            <div className="text-xs text-muted-foreground">{officer.title || "Officer"}</div>
+                                            <div className="text-xs text-muted-foreground">{officer.address}</div>
+                                        </div>
+                                    )
+                                })
+                            ) : (
+                                <div className="text-muted-foreground">
+                                    No officer data in snapshot. <br />
+                                    <span className="text-xs italic">Fallback to DB: {doc.firstOfficerName} ({doc.firstOfficerTitle})</span>
+                                </div>
+                            )}
+                        </div>
                     </section>
                 </div>
 

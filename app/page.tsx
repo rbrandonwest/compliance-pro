@@ -28,7 +28,7 @@ export default async function Home() {
               {isModern ? " We use automation to file instantly." : " Secure, reliable, and compliant."}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/file/P15000085255">
+              <Link href="/file">
                 <Button size="lg" className="h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all">
                   File Annual Report <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
