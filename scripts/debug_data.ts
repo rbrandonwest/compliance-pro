@@ -14,7 +14,7 @@ async function main() {
             select: {
                 companyName: true,
                 active: true,
-                active: true // checking if this exists implicitly or if I was hallucinating
+
             }
         })
         console.log(JSON.stringify(samples, null, 2))
