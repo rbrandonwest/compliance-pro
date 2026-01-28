@@ -53,7 +53,7 @@ export function BusinessSearch() {
                     className="pl-10 h-12 text-lg"
                     value={query}
                     onChange={(e) => {
-                        setQuery(e.target.value)
+                        setQuery(e.target.value.toUpperCase())
                         setOpen(true)
                     }}
                     onFocus={() => setOpen(true)}

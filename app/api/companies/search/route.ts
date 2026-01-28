@@ -13,7 +13,7 @@ export async function GET(request: Request) {
         const results = await prisma.businessDocument.findMany({
             where: {
                 companyName: {
-                    startsWith: query.toUpperCase(), // Best for index usage
+                    startsWith: query, // Database index on LOWER() handles this now
                     mode: 'insensitive',
                 },
                 active: true, // Only show active companies? Or irrelevant? User didn't specify, but safer to find all.
