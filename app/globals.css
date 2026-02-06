@@ -46,40 +46,47 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* Base variables (Default / Blue / Official) */
+/* Base variables (Premium / Swiss Style) */
 :root {
   --radius: 0.5rem;
-  
-  /* Slate-like theme for Official/Blue */
+  /* slightly rounded for a modern feel */
+
+  /* Pure White Background */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692); /* Slate 900 */
-  
+  /* Rich Black Text */
+  --foreground: oklch(0.141 0.005 285.823);
+
+  /* Cards - Crisp White with Subtle Borders */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  
+  --card-foreground: oklch(0.141 0.005 285.823);
+
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  
-  --primary: oklch(0.25 0.1 260); /* Deep Blue */
-  --primary-foreground: oklch(0.985 0 0);
-  
-  --secondary: oklch(0.961 0.006 264.542); /* Slate 100 */
-  --secondary-foreground: oklch(0.205 0 0);
-  
-  --muted: oklch(0.961 0.006 264.542);
-  --muted-foreground: oklch(0.556 0 0);
-  
-  --accent: oklch(0.961 0.006 264.542);
-  --accent-foreground: oklch(0.205 0 0);
-  
+  --popover-foreground: oklch(0.141 0.005 285.823);
+
+  /* Primary Brand Color: "International Klein Blue" inspired - Deep, Vibrant, Authoritative */
+  --primary: oklch(0.40 0.18 265);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secondary: Soft Gray */
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.25 0 0);
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.25 0 0);
+
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  
-  --border: oklch(0.898 0.01 264.542); /* Slate 200 */
-  --input: oklch(0.898 0.01 264.542);
-  --ring: oklch(0.25 0.1 260);
-  
-  --chart-1: oklch(0.646 0.222 41.116);
+
+  /* Borders: Very Subtle Slate */
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.92 0 0);
+
+  --ring: oklch(0.40 0.18 265);
+
+  --chart-1: oklch(0.40 0.18 265);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
@@ -95,45 +102,47 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Green / Modern Theme Overrides */
-[data-brand="green"] {
-  --primary: oklch(0.5 0.2 145); /* Vivid Green */
-  --primary-foreground: oklch(0.985 0 0);
-  
-  --secondary: oklch(0.97 0.01 145); /* Light Green tint */
-  --secondary-foreground: oklch(0.2 0.05 145);
-  
-  --ring: oklch(0.5 0.2 145);
-  --radius: 1rem; /* More rounded for modern feel */
-}
-
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.10 0 0);
+  /* Almost black */
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
+
+  --card: oklch(0.12 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
+
+  --popover: oklch(0.12 0 0);
   --popover-foreground: oklch(0.985 0 0);
+
   --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  /* White primary on dark mode for stark contrast */
+  --primary-foreground: oklch(0.10 0 0);
+
+  --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+
+  --accent: oklch(0.2 0 0);
   --accent-foreground: oklch(0.985 0 0);
+
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+
+  --border: oklch(0.2 0 0);
+  --input: oklch(0.2 0 0);
+
+  --ring: oklch(0.985 0 0);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    /* Modern typography features */
   }
 }
