@@ -1,16 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
 
 export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: string, initialStatus: string, needsFiling: boolean }) {
     const [status, setStatus] = useState(initialStatus)
     const [isPolling, setIsPolling] = useState(false)
+    const statusRef = useRef(status)
 
-    // Start polling if we are in a transitory state or if "PROCESSING"
+    // Keep ref in sync with state to avoid stale closures
     useEffect(() => {
-        if (status === 'PAID' || status === 'PROCESSING') {
+        statusRef.current = status;
+    }, [status]);
+
+    // Start polling if we are in a transitory state
+    useEffect(() => {
+        if (status === 'PAID' || status === 'PROCESSING' || status === 'PENDING') {
             setIsPolling(true);
         }
     }, [status]);
@@ -21,8 +27,9 @@ export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: stri
         const interval = setInterval(async () => {
             try {
                 const res = await fetch(`/api/filing/${docId}/status`);
+                if (!res.ok) return;
                 const data = await res.json();
-                if (data.status !== status) {
+                if (data.status !== statusRef.current) {
                     setStatus(data.status);
                     if (data.status === 'SUCCESS' || data.status === 'FAILED') {
                         setIsPolling(false);
@@ -31,12 +38,12 @@ export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: stri
             } catch (e) {
                 console.error("Polling error", e);
             }
-        }, 3000);
+        }, 5000); // 5 second polling interval
 
         return () => clearInterval(interval);
-    }, [isPolling, docId, status]);
+    }, [isPolling, docId]);
 
-    if (status === 'PROCESSING' || status === 'PAID') {
+    if (status === 'PROCESSING' || status === 'PAID' || status === 'PENDING') {
         return <Badge className="bg-blue-500 flex gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</Badge>
     }
 
@@ -46,6 +53,10 @@ export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: stri
 
     if (status === 'FAILED') {
         return <Badge className="bg-red-600 flex gap-1"><XCircle className="w-3 h-3" /> Failed</Badge>
+    }
+
+    if (status === 'MANUAL_REVIEW') {
+        return <Badge className="bg-orange-500 flex gap-1">Under Review</Badge>
     }
 
     // Default Fallback

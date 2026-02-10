@@ -25,7 +25,7 @@ export default async function FilerDashboardPage({ searchParams }: { searchParam
     const query = params?.q || "";
 
     // Build filter
-    const whereClause: any = {};
+    const whereClause: Record<string, unknown> = {};
     if (query) {
         whereClause.OR = [
             { entity: { businessName: { contains: query, mode: 'insensitive' } } },
@@ -37,14 +37,18 @@ export default async function FilerDashboardPage({ searchParams }: { searchParam
         ];
     }
 
-    // Fetch all filings
+    // Exclude PENDING_PAYMENT (unpaid) filings from the queue
+    whereClause.status = { not: 'PENDING_PAYMENT' };
+
+    // Fetch filings with pagination limit
     const filings = await prisma.filing.findMany({
         where: whereClause,
         include: {
-            entity: true, // FiledEntity
+            entity: true,
             user: true
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 200, // Limit to most recent 200 filings
     });
 
     const pendingStatuses = ['PENDING', 'PAID', 'MANUAL_REVIEW', 'PROCESSING'];
@@ -158,7 +162,7 @@ export default async function FilerDashboardPage({ searchParams }: { searchParam
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     {filing.sunbizReceiptUrl && (
-                                                        <a href={filing.sunbizReceiptUrl} target="_blank" className="text-blue-600 hover:underline">
+                                                        <a href={filing.sunbizReceiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                                                             View Receipt
                                                         </a>
                                                     )}

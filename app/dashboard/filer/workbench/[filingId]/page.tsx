@@ -1,14 +1,20 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle, ExternalLink } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { markFilingAsComplete } from "@/app/actions/filer";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import type { CheckoutPayload } from "@/app/actions/checkout";
 
-export default async function WorkbenchPage({ params }: { params: { filingId: string } }) {
-    // Wait for params
+export default async function WorkbenchPage({ params }: { params: Promise<{ filingId: string }> }) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || (session.user.role !== "FILER" && session.user.role !== "ADMIN")) {
+        redirect("/dashboard");
+    }
+
     const { filingId } = await params;
     const id = parseInt(filingId);
 
@@ -26,7 +32,7 @@ export default async function WorkbenchPage({ params }: { params: { filingId: st
     if (!filing) notFound();
 
     const doc = filing.entity.businessDoc;
-    const snap = (filing.payloadSnapshot as any) || {};
+    const snap = (filing.payloadSnapshot as Partial<CheckoutPayload>) || {};
 
     return (
         <div className="h-screen flex flex-col overflow-hidden">
@@ -103,7 +109,7 @@ export default async function WorkbenchPage({ params }: { params: { filingId: st
                         <h3 className="font-semibold mb-2">Officers</h3>
                         <div className="text-sm space-y-2 border rounded p-2 bg-background">
                             {snap.officers && Array.isArray(snap.officers) && snap.officers.length > 0 ? (
-                                snap.officers.map((officer: any, idx: number) => {
+                                snap.officers.map((officer: { name: string; title: string; address: string }, idx: number) => {
                                     const labels = ["One", "Two", "Three", "Four", "Five"];
                                     const label = labels[idx] ? `Officer ${labels[idx]}` : `Officer ${idx + 1}`;
 

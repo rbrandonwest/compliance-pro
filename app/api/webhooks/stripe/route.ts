@@ -18,8 +18,10 @@ export async function POST(req: Request) {
             signature,
             process.env.STRIPE_WEBHOOK_SECRET!
         );
-    } catch (err: any) {
-        return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error("Webhook signature verification failed:", message);
+        return new Response("Webhook signature verification failed", { status: 400 });
     }
 
     const session = event.data.object as any;
@@ -27,89 +29,67 @@ export async function POST(req: Request) {
     if (event.type === "checkout.session.completed") {
         console.log("Payment successful for session:", session.id);
 
-        const { userId, docId, payload } = session.metadata;
+        const { filingId, userId, docId } = session.metadata;
 
-        // 1. Reconstruct the logic that was previously in the mock action
-        // We now do the DB writes *after* payment is confirmed.
+        if (!filingId) {
+            console.error("Webhook missing filingId in metadata for session:", session.id);
+            return new Response("Missing filingId in metadata", { status: 400 });
+        }
 
-        // Find/Create BusinessDocument (Upsert to ensure it exists)
-        const busDoc = await prisma.businessDocument.upsert({
-            where: { documentNumber: docId },
-            update: {},
-            create: {
-                documentNumber: docId,
-                companyName: "MOCK CORP INC", // Ideally fetched from cache or re-fetched
-                companyType: "FL Corp",
-                state: "FL",
-                active: true,
-                dateFiled: new Date(),
-                principalAddress: "123 Main St, Miami, FL 33301",
-                registeredAgentName: "John Doe",
-                email: "mock@example.com",
-                firstOfficerName: "Jane Doe",
-                firstOfficerTitle: "P"
-            }
-        });
+        const filingIdInt = parseInt(filingId);
 
-        // Find/Create FiledEntity
-        const filedEntity = await prisma.filedEntity.upsert({
-            where: {
-                userId_documentNumber: {
-                    userId: userId,
-                    documentNumber: docId
+        // Look up the existing filing record created during checkout
+        const filing = await prisma.filing.findUnique({
+            where: { id: filingIdInt },
+            include: {
+                entity: {
+                    include: { businessDoc: true }
                 }
-            },
-            update: {
-                businessName: busDoc.companyName,
-            },
-            create: {
-                userId: userId,
-                documentNumber: docId,
-                businessName: busDoc.companyName,
-                lastFiled: null, // Not filed yet
-                inCompliance: false
             }
         });
 
-        // Create Filing Record (PAID)
-        const filing = await prisma.filing.create({
+        if (!filing) {
+            console.error(`Filing ${filingId} not found for session ${session.id}`);
+            return new Response("Filing not found", { status: 404 });
+        }
+
+        // Update filing status from PENDING_PAYMENT to PENDING (paid, ready to process)
+        await prisma.filing.update({
+            where: { id: filingIdInt },
             data: {
-                businessId: filedEntity.id,
-                userId: userId,
-                year: new Date().getFullYear() + 1,
-                status: "PENDING", // Confirmed paid, ready for processing
-                stripeSessionId: session.id, // Save Session ID for receipts
-                payloadSnapshot: JSON.parse(payload || "{}")
+                status: "PENDING",
+                stripeSessionId: session.id,
             }
         });
 
-        // Enqueue Job
+        // Enqueue the automation job
+        const payload = filing.payloadSnapshot || {};
         await filingQueue.add('filing-job', {
             filingId: filing.id,
-            docId: docId,
-            payload: JSON.parse(payload || "{}")
+            docId: filing.entity.documentNumber,
+            payload,
         });
 
-        console.log(`Filing ${filing.id} created and enqueued.`);
+        console.log(`Filing ${filing.id} confirmed paid and enqueued.`);
 
         // Send Confirmation Email
-        if (session.customer_details?.email || session.customer_email) {
+        const customerEmail = session.customer_details?.email || session.customer_email;
+        if (customerEmail) {
             try {
-                const email = session.customer_details?.email || session.customer_email;
                 await resend.emails.send({
-                    from: 'ComplianceFlow <onboarding@resend.dev>', // Update this with your verified domain if available
-                    to: email,
+                    from: `ComplianceFlow <${process.env.EMAIL_FROM || 'noreply@complianceflow.com'}>`,
+                    to: customerEmail,
                     subject: 'Filing Received - ComplianceFlow',
                     react: React.createElement(OrderConfirmationEmail, {
-                        companyName: busDoc.companyName,
+                        companyName: filing.entity.businessName,
                         year: filing.year,
-                        documentNumber: docId,
+                        documentNumber: filing.entity.documentNumber,
                     }),
                 });
-                console.log(`Confirmation email sent to ${email}`);
+                console.log(`Confirmation email sent to ${customerEmail}`);
             } catch (emailError) {
                 console.error("Failed to send confirmation email:", emailError);
-                // Don't fail the webhook, just log the error
+                // Don't fail the webhook for email errors
             }
         }
     }

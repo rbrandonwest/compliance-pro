@@ -9,8 +9,6 @@ export default async function DashboardPage() {
         redirect("/login")
     }
 
-    console.log("Dashboard Session:", JSON.stringify(session, null, 2));
-
     const role = session.user.role || "CLIENT";
 
     if (role === "ADMIN") {
