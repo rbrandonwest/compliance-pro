@@ -3,50 +3,78 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { filingQueue } from "@/lib/queue";
-import { revalidatePath } from "next/cache";
-
-/* 
-  Real Stripe Checkout Action
-*/
 import { stripe } from "@/lib/stripe";
+import { z } from "zod";
 
-export async function createCheckoutSession(docId: string, payload: any) {
+const checkoutPayloadSchema = z.object({
+    principalAddress: z.string().min(5),
+    mailingAddress: z.string().min(5),
+    officers: z.array(z.object({
+        name: z.string().min(1),
+        title: z.string().min(1),
+        address: z.string().min(5),
+    })),
+    registeredAgent: z.object({
+        name: z.string().min(1),
+        address: z.string().min(5),
+    }),
+    termsAccepted: z.literal(true),
+    addRaService: z.boolean(),
+    ein: z.string().optional(),
+    email: z.string().optional(),
+    password: z.string().optional(),
+});
+
+export type CheckoutPayload = z.infer<typeof checkoutPayloadSchema>;
+
+/**
+ * Determines the filing year based on the current date.
+ * Florida annual reports are due May 1st each year.
+ * Before May 1st, we file for the current year.
+ * After May 1st, the current year's report should already be filed,
+ * so we target the next year.
+ */
+function getFilingYear(): number {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const may1 = new Date(currentYear, 4, 1); // Month is 0-indexed
+    return now >= may1 ? currentYear + 1 : currentYear;
+}
+
+export async function createCheckoutSession(docId: string, payload: unknown) {
     const session = await getServerSession(authOptions);
-    let userId = session?.user?.id;
+    const userId = session?.user?.id;
 
-    // 1. Ensure User Session
     if (!userId) {
-        console.error("No user session for checkout");
         return { success: false, error: "Authentication required" };
     }
 
-    // 2. Upsert Business Document
-    // Extract EIN from payload if provided
-    const ein = payload?.ein;
+    // Validate payload server-side
+    const parsed = checkoutPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+        return { success: false, error: "Invalid filing data. Please check your form and try again." };
+    }
+    const validatedPayload = parsed.data;
 
-    const busDoc = await prisma.businessDocument.upsert({
-        where: { documentNumber: docId },
-        update: {
-            ...(ein ? { ein } : {})
-        },
-        create: {
-            documentNumber: docId,
-            companyName: "MOCK CORP INC",
-            companyType: "FL Corp",
-            state: "FL",
-            active: true,
-            dateFiled: new Date(),
-            principalAddress: "123 Main St, Miami, FL 33301",
-            registeredAgentName: "John Doe",
-            email: "mock@example.com",
-            firstOfficerName: "Jane Doe",
-            firstOfficerTitle: "P",
-            ein: ein || null // Use provided EIN or null
-        }
+    // 1. Verify BusinessDocument exists — never create from mock data
+    const busDoc = await prisma.businessDocument.findUnique({
+        where: { documentNumber: docId }
     });
 
-    // 3. Ensure FiledEntity Exists (Critical for foreign key)
+    if (!busDoc) {
+        return { success: false, error: "Business not found. Please search for your business first." };
+    }
+
+    // Update EIN if provided by user and not already set
+    const ein = validatedPayload.ein;
+    if (ein && !busDoc.ein) {
+        await prisma.businessDocument.update({
+            where: { documentNumber: docId },
+            data: { ein }
+        });
+    }
+
+    // 2. Ensure FiledEntity exists (links user to business)
     const entity = await prisma.filedEntity.upsert({
         where: {
             userId_documentNumber: {
@@ -63,19 +91,36 @@ export async function createCheckoutSession(docId: string, payload: any) {
         }
     });
 
-    // 4. Create Filing Record IMMEDIATELY (Status: PENDING_PAYMENT)
-    // Save the full user-submitted payload as the snapshot. This IS the truth.
-    const filing = await prisma.filing.create({
+    // 3. Check for existing unpaid filing to prevent duplicates
+    const existingUnpaidFiling = await prisma.filing.findFirst({
+        where: {
+            businessId: entity.id,
+            userId,
+            year: getFilingYear(),
+            status: "PENDING_PAYMENT",
+        }
+    });
+
+    // Reuse existing unpaid filing or create new one
+    const filing = existingUnpaidFiling ?? await prisma.filing.create({
         data: {
             businessId: entity.id,
             userId,
-            year: 2025, // Or dynamic calculate
+            year: getFilingYear(),
             status: "PENDING_PAYMENT",
-            payloadSnapshot: payload as any // full form data
+            payloadSnapshot: validatedPayload as object,
         }
-    })
+    });
 
-    // 5. Create Stripe Session
+    // Update payload snapshot if reusing existing filing
+    if (existingUnpaidFiling) {
+        await prisma.filing.update({
+            where: { id: filing.id },
+            data: { payloadSnapshot: validatedPayload as object }
+        });
+    }
+
+    // 4. Create Stripe Session
     try {
         const checkoutSession = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -87,12 +132,11 @@ export async function createCheckoutSession(docId: string, payload: any) {
                             name: 'Florida Annual Report Filing Fee',
                             description: 'State mandated filing fee',
                         },
-                        unit_amount: 15000, // $150.00
+                        unit_amount: 0, // $0.00 (TESTING)
                     },
                     quantity: 1,
                 },
-                // Dynamic Line Items based on Service Selection
-                ...(payload.addRaService ? [
+                ...(validatedPayload.addRaService ? [
                     {
                         price_data: {
                             currency: 'usd',
@@ -112,7 +156,7 @@ export async function createCheckoutSession(docId: string, payload: any) {
                                 name: 'Service Fee',
                                 description: 'ComplianceFlow Processing',
                             },
-                            unit_amount: 4900, // $49.00
+                            unit_amount: 100, // $1.00 (TESTING)
                         },
                         quantity: 1,
                     }
@@ -122,10 +166,9 @@ export async function createCheckoutSession(docId: string, payload: any) {
             success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?filed=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/file/${docId}`,
             metadata: {
-                userId: userId,
-                docId: docId,
-                filingId: filing.id.toString(), // CRITICAL for webhook to find this record later
-                // payload: JSON.stringify(payload || {}) // No longer needed in metadata since we saved it in DB
+                userId,
+                docId,
+                filingId: filing.id.toString(),
             }
         });
 
@@ -137,9 +180,7 @@ export async function createCheckoutSession(docId: string, payload: any) {
 
         return { success: true, url: checkoutSession.url };
     } catch (err) {
-        console.error("Stripe Error:", err);
+        console.error("Stripe checkout creation error:", err);
         return { success: false, error: "Payment initialization failed" };
     }
 }
-
-

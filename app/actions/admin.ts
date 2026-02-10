@@ -3,8 +3,21 @@
 import prisma from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import crypto from "crypto";
+
+async function requireAdmin() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== "ADMIN") {
+        throw new Error("Unauthorized: Admin access required");
+    }
+    return session;
+}
 
 export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'FILER' | 'CLIENT') {
+    await requireAdmin();
+
     await prisma.user.update({
         where: { id: userId },
         data: { role: newRole }
@@ -13,17 +26,55 @@ export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'FILER' 
 }
 
 export async function deleteUser(userId: string) {
-    // Delete related data first or cascade?
-    // Be careful with deletion.
-    await prisma.user.delete({
-        where: { id: userId }
+    const session = await requireAdmin();
+
+    // Prevent self-deletion
+    if (userId === session.user.id) {
+        throw new Error("Cannot delete your own account");
+    }
+
+    // Check target user isn't an admin
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+        throw new Error("User not found");
+    }
+    if (targetUser.role === 'ADMIN') {
+        throw new Error("Cannot delete admin users");
+    }
+
+    // Cascade: delete filings, then filed entities, then user
+    await prisma.$transaction(async (tx) => {
+        // Delete artifacts for user's filings
+        await tx.artifact.deleteMany({
+            where: { filing: { userId } }
+        });
+        // Delete filings
+        await tx.filing.deleteMany({
+            where: { userId }
+        });
+        // Delete filed entities
+        await tx.filedEntity.deleteMany({
+            where: { userId }
+        });
+        // Delete password reset tokens
+        await tx.passwordResetToken.deleteMany({
+            where: { email: targetUser.email }
+        });
+        // Delete user
+        await tx.user.delete({
+            where: { id: userId }
+        });
     });
+
     revalidatePath('/dashboard/admin');
 }
 
 export async function resetUserPassword(userId: string) {
-    const tempPassword = "TempPassword123!";
-    const hashedPassword = await hash(tempPassword, 10);
+    await requireAdmin();
+
+    // Generate a cryptographically random temporary password
+    const tempPassword = crypto.randomBytes(16).toString('base64url');
+    const hashedPassword = await hash(tempPassword, 12);
 
     await prisma.user.update({
         where: { id: userId },
@@ -31,4 +82,24 @@ export async function resetUserPassword(userId: string) {
     });
 
     return { success: true, tempPassword };
+}
+
+export async function toggleAutomation() {
+    await requireAdmin();
+
+    const setting = await prisma.systemSetting.findUnique({
+        where: { key: 'automation_enabled' }
+    });
+
+    const currentValue = setting?.value === 'true';
+    const newValue = !currentValue;
+
+    await prisma.systemSetting.upsert({
+        where: { key: 'automation_enabled' },
+        update: { value: String(newValue) },
+        create: { key: 'automation_enabled', value: String(newValue), description: 'Global automation on/off switch' }
+    });
+
+    revalidatePath('/dashboard/admin');
+    return { enabled: newValue };
 }

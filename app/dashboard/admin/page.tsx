@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -6,8 +5,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { redirect } from "next/navigation"
-import { deleteUser, updateUserRole, resetUserPassword } from "@/app/actions/admin"
 import { SearchInput } from "@/components/dashboard/search-input"
+import { AdminActions } from "@/components/dashboard/admin-actions"
+import { AutomationToggle } from "@/components/dashboard/automation-toggle"
 import FilerDashboardPage from "../filer/page"
 
 export default async function AdminDashboardPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
@@ -20,6 +20,11 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
     const params = await searchParams;
     const query = params?.q || "";
 
+    const automationSetting = await prisma.systemSetting.findUnique({
+        where: { key: 'automation_enabled' }
+    });
+    const automationEnabled = automationSetting?.value === 'true';
+
     const users = await prisma.user.findMany({
         where: query ? {
             OR: [
@@ -29,7 +34,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
             ]
         } : {},
         orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { filings: true } } }
+        include: { _count: { select: { filings: true } } },
+        take: 100, // Limit to most recent 100 users per page
     });
 
     return (
@@ -42,8 +48,10 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                     </div>
                 </header>
 
+                <AutomationToggle initialEnabled={automationEnabled} />
+
                 <Tabs defaultValue="filings" className="w-full">
-                    <TabsList >
+                    <TabsList>
                         <TabsTrigger value="filings">Filing Queue</TabsTrigger>
                         <TabsTrigger value="users">User Management</TabsTrigger>
                     </TabsList>
@@ -93,21 +101,11 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                                                         {new Date(user.createdAt).toLocaleDateString()}
                                                     </td>
                                                     <td className="px-4 py-3 text-right space-x-2">
-                                                        <form action={async () => {
-                                                            'use server';
-                                                            const nextRole = user.role === 'CLIENT' ? 'FILER' : (user.role === 'FILER' ? 'ADMIN' : 'CLIENT');
-                                                            await updateUserRole(user.id, nextRole as any);
-                                                        }} className="inline">
-                                                            <Button size="sm" variant="outline">Cycle Role</Button>
-                                                        </form>
-
-                                                        {/* Simple deletion form */}
-                                                        <form action={async () => {
-                                                            'use server';
-                                                            if (user.role !== 'ADMIN') await deleteUser(user.id);
-                                                        }} className="inline">
-                                                            <Button size="sm" variant="destructive" disabled={user.role === 'ADMIN'}>Delete</Button>
-                                                        </form>
+                                                        <AdminActions
+                                                            userId={user.id}
+                                                            userRole={user.role}
+                                                            userEmail={user.email}
+                                                        />
                                                     </td>
                                                 </tr>
                                             ))}

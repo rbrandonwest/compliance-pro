@@ -27,6 +27,16 @@ enum Role {
   CLIENT
 }
 
+enum FilingStatus {
+  PENDING_PAYMENT
+  PENDING
+  PAID
+  PROCESSING
+  SUCCESS
+  FAILED
+  MANUAL_REVIEW
+}
+
 model BusinessDocument {
   id                  Int      @id @default(autoincrement())
   documentNumber      String   @unique // The "docId" from Sunbiz
@@ -86,7 +96,7 @@ model Filing {
   user             User     @relation(fields: [userId], references: [id])
   
   year             Int
-  status           String   // "PENDING", "PAID", "PROCESSING", "SUCCESS", "FAILED", "MANUAL_REVIEW"
+  status           FilingStatus @default(PENDING_PAYMENT)
   invoiceNumber    String?
   
   stripeSessionId  String?
@@ -100,6 +110,8 @@ model Filing {
   
   @@index([businessId])
   @@index([userId])
+  @@index([status])
+  @@index([stripeSessionId])
 }
 
 model Artifact {

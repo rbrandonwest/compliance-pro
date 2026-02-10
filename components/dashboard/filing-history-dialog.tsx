@@ -79,7 +79,7 @@ export function FilingHistoryDialog({ businessName, filings }: FilingHistoryProp
                                 <TableHead>Year</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Date Filed</TableHead>
-                                <TableHead>Orign</TableHead>
+                                <TableHead>Origin</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>

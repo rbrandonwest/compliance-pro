@@ -17,8 +17,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Business Annual Report Filing",
-  description: "Florida Annual Report Filing Automation",
+  title: {
+    default: "Business Annual Report Filing | Florida Annual Reports Made Simple",
+    template: "%s | Business Annual Report Filing",
+  },
+  description: "File your Florida annual report quickly and securely. Automated filing with Sunbiz, compliance monitoring, and registered agent services. Avoid penalties and maintain your corporate veil.",
+  keywords: ["Florida annual report", "Sunbiz filing", "business compliance", "annual report filing", "Florida LLC", "corporate filing", "registered agent"],
+  openGraph: {
+    type: "website",
+    title: "Business Annual Report Filing",
+    description: "File your Florida annual report quickly and securely. Automated filing, compliance monitoring, and registered agent services.",
+    siteName: "Business Annual Report Filing",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Business Annual Report Filing",
+    description: "File your Florida annual report quickly and securely.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default async function RootLayout({

@@ -18,7 +18,7 @@ const worker = new Worker('filing-queue', async job => {
     // Update status to PROCESSING
     // We need to find the filing. The job.data should contain filingId.
     const { filingId, docId, payload } = job.data;
-    const filingIdInt = parseInt(filingId); // Ensure it's an int if passed as string
+    const filingIdInt = typeof filingId === 'number' ? filingId : parseInt(filingId);
 
     // Check Global Automation Switch
     const setting = await prisma.systemSetting.findUnique({
@@ -56,7 +56,7 @@ const worker = new Worker('filing-queue', async job => {
                 where: { id: filingIdInt },
                 data: {
                     status: 'SUCCESS',
-                    sunbizReceiptUrl: 'https://sunbiz.org/mock-receipt'
+                    // Receipt URL will be set by filer in the workbench after manual verification
                 }
             });
 

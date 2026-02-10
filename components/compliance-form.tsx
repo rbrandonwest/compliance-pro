@@ -11,11 +11,11 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Check, Shield, Users, CreditCard, FileText } from "lucide-react"
+import { Check, Shield, Users, CreditCard, FileText, AlertCircle, MapPin, ArrowRight, ArrowLeft, Trash2, Plus, Lock } from "lucide-react"
 
 import { signIn, useSession } from "next-auth/react"
 
-// Types matching DB/Mock
+// Types matching DB
 export type EntityData = {
     docId: string
     name: string
@@ -41,25 +41,31 @@ const formSchema = z.object({
         address: z.string().min(5, "RA Address required"),
     }),
     termsAccepted: z.boolean().refine(val => val === true, "You must agree to the terms to proceed."),
-    addRaService: z.boolean().default(false),
+    addRaService: z.boolean(),
+    ein: z.string().optional(),
     email: z.string().optional(),
     password: z.string().optional(),
 })
 
-// type FormValues = z.infer<typeof formSchema> // Use inference
+type FormValues = z.infer<typeof formSchema>
+
+const steps = [
+    { label: "Address", icon: MapPin },
+    { label: "Roles", icon: Users },
+    { label: "Review & Pay", icon: CreditCard },
+]
 
 export function ComplianceForm({ entity }: { entity: EntityData }) {
     const [step, setStep] = useState(1)
+    const [formError, setFormError] = useState<string | null>(null)
 
-    const [isEditingHeader, setIsEditingHeader] = useState(false)
-    const [headerValues, setHeaderValues] = useState({
-        docId: entity.docId,
-        ein: entity.ein
-    })
+    // EIN is the only editable header field — docId is locked to prevent tampering
+    const [ein, setEin] = useState(entity.ein)
+    const [isEditingEin, setIsEditingEin] = useState(false)
 
     const { data: session } = useSession()
 
-    const form = useForm({
+    const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             principalAddress: entity.principalAddress,
@@ -73,13 +79,11 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
             },
             termsAccepted: false,
             addRaService: false,
+            ein: entity.ein,
             email: "",
             password: ""
         }
     })
-
-    // Derive type from form.control if needed, or use inferred type for onSubmit
-    type FormValues = z.infer<typeof formSchema>
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
@@ -87,6 +91,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
     })
 
     const handleNext = async () => {
+        setFormError(null);
         let valid = false;
         if (step === 1) {
             valid = await form.trigger(["principalAddress", "mailingAddress"]);
@@ -101,11 +106,13 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
     };
 
     const onSubmit = async (data: FormValues) => {
+        setFormError(null);
+
         try {
             // 1. Handle Registration if needed
             if (!session) {
                 if (!data.email || !data.password) {
-                    alert("Please enter an email and password to create your account.");
+                    setFormError("Please enter an email and password to create your account.");
                     return;
                 }
 
@@ -113,7 +120,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                 const regResult = await registerUser(data.email, data.password);
 
                 if (!regResult.success) {
-                    alert("Registration failed: " + regResult.error);
+                    setFormError("Registration failed: " + regResult.error);
                     return;
                 }
 
@@ -125,132 +132,155 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                 });
 
                 if (signInResult?.error) {
-                    alert("Login after registration failed.");
+                    setFormError("Login after registration failed. Please try logging in manually.");
                     return;
                 }
             }
 
-            // 2. Process Checkout
+            // 2. Process Checkout — use the server-provided docId, not a user-editable one
             const { createCheckoutSession } = await import("@/app/actions/checkout");
-            // Pass the potentially edited docId, include EIN, and FULL DATA in payload
             const payload = {
-                ein: headerValues.ein,
+                ein,
                 ...data
             };
 
-            const result = await createCheckoutSession(headerValues.docId, payload);
+            const result = await createCheckoutSession(entity.docId, payload);
 
             if (result.success && result.url) {
-                // Redirect to Stripe Checkout
                 window.location.href = result.url;
-            } else if (result.success) {
-                // Fallback for mock/free (shouldn't happen with Stripe active)
-                window.location.href = "/dashboard?filed=true";
             } else {
-                alert("Payment initialization failed: " + result.error);
+                setFormError(result.error || "Payment initialization failed. Please try again.");
             }
         } catch (err) {
             console.error("Checkout Error:", err)
-            alert("Checkout failed. Please try again.")
+            setFormError("An unexpected error occurred. Please try again.");
         }
     }
 
     return (
         <div className="max-w-3xl mx-auto py-10 px-4">
-            {/* Progress */}
-            <div className="mb-8 pl-1">
-                <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-                    <div className={`flex items-center gap-2 ${step >= 1 ? "text-primary" : ""}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= 1 ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground"}`}>1</div>
-                        Address
-                    </div>
-                    <div className="h-px bg-border flex-1" />
-                    <div className={`flex items-center gap-2 ${step >= 2 ? "text-primary" : ""}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= 2 ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground"}`}>2</div>
-                        Roles
-                    </div>
-                    <div className="h-px bg-border flex-1" />
-                    <div className={`flex items-center gap-2 ${step >= 3 ? "text-primary" : ""}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= 3 ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground"}`}>3</div>
-                        Review
-                    </div>
+            {/* Progress Steps */}
+            <div className="mb-10">
+                <div className="flex items-center justify-between relative">
+                    {/* Progress line background */}
+                    <div className="absolute top-5 left-0 right-0 h-0.5 bg-border" />
+                    <div
+                        className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500 ease-out"
+                        style={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
+                    />
+
+                    {steps.map((s, i) => {
+                        const stepNum = i + 1
+                        const isActive = step === stepNum
+                        const isCompleted = step > stepNum
+                        return (
+                            <div key={i} className="flex flex-col items-center relative z-10">
+                                <div className={`
+                                    w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                                    ${isCompleted
+                                        ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/25"
+                                        : isActive
+                                            ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30 scale-110"
+                                            : "bg-card border-border text-muted-foreground"
+                                    }
+                                `}>
+                                    {isCompleted ? (
+                                        <Check className="w-5 h-5" />
+                                    ) : (
+                                        <s.icon className="w-4 h-4" />
+                                    )}
+                                </div>
+                                <span className={`text-xs font-medium mt-2 transition-colors ${isActive || isCompleted ? "text-primary" : "text-muted-foreground"}`}>
+                                    {s.label}
+                                </span>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
 
-            <Card className="shadow-lg border-muted">
-                <CardHeader className="bg-muted/30 pb-4">
+            <Card className="shadow-xl shadow-primary/5 border-border/50 overflow-hidden">
+                {/* Card Header */}
+                <CardHeader className="bg-muted/30 border-b pb-5">
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
-                            <CardTitle className="text-xl mb-1">{entity.name}</CardTitle>
-                            {!isEditingHeader ? (
-                                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                                    <span>Document ID: {headerValues.docId}</span>
-                                    <span>•</span>
-                                    <span>EIN: {headerValues.ein}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 w-6 p-0 ml-1 opacity-70 hover:opacity-100"
-                                        onClick={() => setIsEditingHeader(true)}
-                                    >
-                                        <div className="sr-only">Edit</div>
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                                            <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-                                            <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
-                                        </svg>
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col sm:flex-row gap-3 mt-2 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="space-y-1">
-                                        <Label htmlFor="doc-id-edit" className="text-xs">Document ID</Label>
-                                        <Input
-                                            id="doc-id-edit"
-                                            value={headerValues.docId}
-                                            onChange={(e) => setHeaderValues(prev => ({ ...prev, docId: e.target.value }))}
-                                            className="h-8 text-sm w-32"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label htmlFor="ein-edit" className="text-xs">EIN</Label>
+                            <CardTitle className="text-xl font-bold tracking-tight mb-1.5">{entity.name}</CardTitle>
+                            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span className="font-mono">{entity.docId}</span>
+                                <span className="text-border">|</span>
+                                {!isEditingEin ? (
+                                    <>
+                                        <span>EIN: {ein || 'N/A'}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 ml-1 opacity-70 hover:opacity-100"
+                                            onClick={() => setIsEditingEin(true)}
+                                        >
+                                            <div className="sr-only">Edit EIN</div>
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                                                <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+                                                <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+                                            </svg>
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
                                         <Input
                                             id="ein-edit"
-                                            value={headerValues.ein}
-                                            onChange={(e) => setHeaderValues(prev => ({ ...prev, ein: e.target.value }))}
+                                            value={ein}
+                                            onChange={(e) => setEin(e.target.value)}
                                             className="h-8 text-sm w-32"
+                                            placeholder="EIN"
                                         />
+                                        <Button size="sm" className="h-8" onClick={() => setIsEditingEin(false)}>Save</Button>
                                     </div>
-                                    <div className="flex items-end pb-0.5 gap-1">
-                                        <Button size="sm" onClick={() => setIsEditingHeader(false)}>Save</Button>
-                                    </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                        <Badge variant="outline" className="bg-background">{entity.currentYear} Annual Report</Badge>
+                        <Badge variant="outline" className="bg-background font-semibold">{entity.currentYear} Annual Report</Badge>
                     </div>
                 </CardHeader>
-                <CardContent className="pt-6">
+
+                <CardContent className="pt-8 pb-6">
+                    {/* Global form error banner */}
+                    {formError && (
+                        <div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-3 text-destructive animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+                            <div>
+                                <p className="text-sm font-medium">Something went wrong</p>
+                                <p className="text-sm opacity-90">{formError}</p>
+                            </div>
+                        </div>
+                    )}
+
                     <form id="filing-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
                         {/* Step 1: Addresses */}
                         {step === 1 && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Shield className="w-5 h-5 text-primary" />
-                                    <h3 className="font-semibold text-lg">Confirm Business Addresses</h3>
+                            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <MapPin className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">Confirm Business Addresses</h3>
+                                        <p className="text-sm text-muted-foreground">Verify or update your business addresses below.</p>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Principal Address</Label>
-                                    <Input {...form.register("principalAddress")} />
-                                    <p className="text-[0.8rem] text-muted-foreground">This must be a street address.</p>
-                                    {form.formState.errors.principalAddress && <p className="text-destructive text-sm">{form.formState.errors.principalAddress.message}</p>}
+                                    <Label className="text-sm font-medium">Principal Address</Label>
+                                    <Input {...form.register("principalAddress")} className="h-11" />
+                                    <p className="text-xs text-muted-foreground">This must be a Florida street address (no P.O. boxes).</p>
+                                    {form.formState.errors.principalAddress && <p className="text-destructive text-sm font-medium">{form.formState.errors.principalAddress.message}</p>}
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Mailing Address</Label>
-                                    <Input {...form.register("mailingAddress")} />
-                                    {form.formState.errors.mailingAddress && <p className="text-destructive text-sm">{form.formState.errors.mailingAddress.message}</p>}
+                                    <Label className="text-sm font-medium">Mailing Address</Label>
+                                    <Input {...form.register("mailingAddress")} className="h-11" />
+                                    {form.formState.errors.mailingAddress && <p className="text-destructive text-sm font-medium">{form.formState.errors.mailingAddress.message}</p>}
                                 </div>
                             </div>
                         )}
@@ -261,23 +291,26 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                 {/* Registered Agent Section */}
                                 <div className="space-y-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Shield className="w-5 h-5 text-primary" />
-                                        <h3 className="font-semibold text-lg">Registered Agent</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                            <Shield className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-lg">Registered Agent</h3>
+                                            <p className="text-sm text-muted-foreground">Your designated agent for legal correspondence.</p>
+                                        </div>
                                     </div>
-                                    <div className="grid gap-4 p-4 border rounded-lg bg-muted/5">
-                                        <div className="grid grid-cols-12 gap-4">
-                                            <div className="col-span-12 sm:col-span-12">
-                                                <Label>Name</Label>
-                                                <Input {...form.register("registeredAgent.name")} />
-                                                {form.formState.errors.registeredAgent?.name && <p className="text-destructive text-sm">{form.formState.errors.registeredAgent.name.message}</p>}
-                                            </div>
-                                            <div className="col-span-12">
-                                                <Label>Address</Label>
-                                                <Input {...form.register("registeredAgent.address")} />
-                                                <p className="text-[0.8rem] text-muted-foreground">Must be a Florida street adddress.</p>
-                                                {form.formState.errors.registeredAgent?.address && <p className="text-destructive text-sm">{form.formState.errors.registeredAgent.address.message}</p>}
-                                            </div>
+                                    <div className="grid gap-4 p-5 border border-border/50 rounded-xl bg-muted/20">
+                                        <div>
+                                            <Label className="text-sm font-medium">Agent Name</Label>
+                                            <Input {...form.register("registeredAgent.name")} className="h-11 mt-1.5" />
+                                            {form.formState.errors.registeredAgent?.name && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.registeredAgent.name.message}</p>}
+                                        </div>
+                                        <div>
+                                            <Label className="text-sm font-medium">Agent Address</Label>
+                                            <Input {...form.register("registeredAgent.address")} className="h-11 mt-1.5" />
+                                            <p className="text-xs text-muted-foreground mt-1">Must be a Florida street address.</p>
+                                            {form.formState.errors.registeredAgent?.address && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.registeredAgent.address.message}</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -286,40 +319,55 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                 {/* Officers Section */}
                                 <div className="space-y-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Users className="w-5 h-5 text-primary" />
-                                        <h3 className="font-semibold text-lg">Officers & Directors</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                            <Users className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-lg">Officers & Directors</h3>
+                                            <p className="text-sm text-muted-foreground">At least one officer or director is required.</p>
+                                        </div>
                                     </div>
 
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="grid gap-4 p-4 border rounded-lg bg-muted/10 relative">
-                                            <div className="grid grid-cols-12 gap-4">
-                                                <div className="col-span-12 sm:col-span-4">
-                                                    <Label>Role/Title</Label>
-                                                    <Input {...form.register(`officers.${index}.title`)} placeholder="e.g. P, VP, D" />
-                                                    {form.formState.errors.officers?.[index]?.title && <p className="text-destructive text-sm">{form.formState.errors.officers[index].title.message}</p>}
-                                                </div>
-                                                <div className="col-span-12 sm:col-span-8">
-                                                    <Label>Name</Label>
-                                                    <Input {...form.register(`officers.${index}.name`)} placeholder="Full Name" />
-                                                    {form.formState.errors.officers?.[index]?.name && <p className="text-destructive text-sm">{form.formState.errors.officers[index].name.message}</p>}
-                                                </div>
-                                                <div className="col-span-12">
-                                                    <Label>Address</Label>
-                                                    <Input {...form.register(`officers.${index}.address`)} placeholder="Address" />
-                                                    {form.formState.errors.officers?.[index]?.address && <p className="text-destructive text-sm">{form.formState.errors.officers[index].address.message}</p>}
+                                        <div key={field.id} className="p-5 border border-border/50 rounded-xl bg-muted/10 relative group">
+                                            <div className="grid gap-4">
+                                                <div className="grid grid-cols-12 gap-4">
+                                                    <div className="col-span-12 sm:col-span-4">
+                                                        <Label className="text-sm font-medium">Role/Title</Label>
+                                                        <Input {...form.register(`officers.${index}.title`)} placeholder="e.g. P, VP, D" className="h-11 mt-1.5" />
+                                                        {form.formState.errors.officers?.[index]?.title && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.officers[index].title.message}</p>}
+                                                    </div>
+                                                    <div className="col-span-12 sm:col-span-8">
+                                                        <Label className="text-sm font-medium">Full Name</Label>
+                                                        <Input {...form.register(`officers.${index}.name`)} placeholder="Full Name" className="h-11 mt-1.5" />
+                                                        {form.formState.errors.officers?.[index]?.name && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.officers[index].name.message}</p>}
+                                                    </div>
+                                                    <div className="col-span-12">
+                                                        <Label className="text-sm font-medium">Address</Label>
+                                                        <Input {...form.register(`officers.${index}.address`)} placeholder="Street Address" className="h-11 mt-1.5" />
+                                                        {form.formState.errors.officers?.[index]?.address && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.officers[index].address.message}</p>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             {fields.length > 1 && (
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => remove(index)}
+                                                    className="absolute top-3 right-3 text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 className="w-4 h-4 mr-1" />
                                                     Remove
                                                 </Button>
                                             )}
                                         </div>
                                     ))}
 
-                                    <Button type="button" variant="outline" onClick={() => append({ name: "", title: "", address: "" })} className="w-full border-dashed">
-                                        + Add Officer / Director
+                                    <Button type="button" variant="outline" onClick={() => append({ name: "", title: "", address: "" })} className="w-full border-dashed h-11 hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add Officer / Director
                                     </Button>
                                 </div>
                             </div>
@@ -328,59 +376,64 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                         {/* Step 3: Checkout and Account */}
                         {step === 3 && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <CreditCard className="w-5 h-5 text-primary" />
-                                    <h3 className="font-semibold text-lg">Review & Payment</h3>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <CreditCard className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">Review & Payment</h3>
+                                        <p className="text-sm text-muted-foreground">Confirm your details and proceed to secure checkout.</p>
+                                    </div>
                                 </div>
 
                                 {!session ? (
-                                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-4">
+                                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-4">
                                         <div className="flex items-center gap-2">
                                             <Users className="w-4 h-4 text-primary" />
                                             <h4 className="font-semibold text-sm text-primary">Create Your Account</h4>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>Email Address</Label>
-                                                <Input {...form.register("email")} placeholder="you@example.com" />
+                                            <div className="space-y-1.5">
+                                                <Label className="text-sm font-medium">Email Address</Label>
+                                                <Input {...form.register("email")} placeholder="you@example.com" className="h-11" />
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>Password</Label>
-                                                <Input {...form.register("password")} type="password" placeholder="Create a password" />
+                                            <div className="space-y-1.5">
+                                                <Label className="text-sm font-medium">Password</Label>
+                                                <Input {...form.register("password")} type="password" placeholder="Create a password" className="h-11" />
                                             </div>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            We'll automatically create your account and sign you in so you can track this filing.
+                                            We&apos;ll automatically create your account and sign you in so you can track this filing.
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2 text-green-700">
-                                        <Check className="w-4 h-4" />
+                                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-2.5 text-green-700">
+                                        <Check className="w-5 h-5" />
                                         <span className="text-sm font-medium">Logged in as {session.user?.email}</span>
                                     </div>
                                 )}
 
-                                <div className="bg-muted/20 p-4 rounded-lg space-y-3">
-                                    <div className="flex justify-between">
-                                        <span>State Filing Fee</span>
-                                        <span>$150.00</span>
+                                {/* Pricing Breakdown */}
+                                <div className="bg-muted/20 p-5 rounded-xl space-y-3 border border-border/30">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">State Filing Fee</span>
+                                        <span className="font-medium">$0.00</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span>Service Fee</span>
-                                        {/* Waive service fee if RA added */}
-                                        <span>{form.watch("addRaService") ? <span className="text-green-600 font-medium">$0.00 (Waived)</span> : "$49.00"}</span>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Service Fee</span>
+                                        <span className="font-medium">{form.watch("addRaService") ? <span className="text-green-600">$0.00 (Waived)</span> : "$1.00"}</span>
                                     </div>
 
                                     {form.watch("addRaService") && (
-                                        <div className="flex justify-between animate-in fade-in slide-in-from-top-2">
-                                            <span>Registered Agent Service</span>
-                                            <span>$99.00</span>
+                                        <div className="flex justify-between text-sm animate-in fade-in slide-in-from-top-2">
+                                            <span className="text-muted-foreground">Registered Agent Service</span>
+                                            <span className="font-medium">$99.00</span>
                                         </div>
                                     )}
 
                                     <Separator />
 
-                                    <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                                    <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
                                         <Checkbox
                                             id="ra-service"
                                             checked={form.watch("addRaService")}
@@ -388,10 +441,10 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                             className="mt-1"
                                         />
                                         <div className="grid gap-1.5 leading-none">
-                                            <label htmlFor="ra-service" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            <label htmlFor="ra-service" className="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                                 Add Registered Agent Service (+$99/yr)
                                             </label>
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
                                                 Worry-free compliance. We automatically handle your annual report filing every year so you never miss a deadline.
                                             </p>
                                         </div>
@@ -399,9 +452,9 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                     <Separator />
 
-                                    <div className="flex justify-between font-bold text-lg">
+                                    <div className="flex justify-between font-bold text-lg pt-1">
                                         <span>Total Due</span>
-                                        <span>${(150 + (form.watch("addRaService") ? 99 : 49)).toFixed(2)}</span>
+                                        <span className="text-primary">${(0 + (form.watch("addRaService") ? 99 : 1)).toFixed(2)}</span>
                                     </div>
                                     {form.watch("addRaService") && (
                                         <p className="text-xs text-muted-foreground text-right italic animate-in fade-in">
@@ -411,21 +464,22 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                 </div>
 
                                 {/* Terms & Conditions */}
-                                <div className="flex items-start space-x-2 pt-2">
+                                <div className="flex items-start space-x-3 pt-2">
                                     <Checkbox
                                         id="terms"
                                         checked={form.watch("termsAccepted")}
                                         onCheckedChange={(c) => form.setValue("termsAccepted", c as boolean)}
+                                        className="mt-0.5"
                                     />
                                     <div className="grid gap-1.5 leading-none">
                                         <label
                                             htmlFor="terms"
-                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            className="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                         >
                                             Legal Certification & Agreement
                                         </label>
                                         <p className="text-xs text-muted-foreground leading-relaxed">
-                                            By checking this box, I hereby certify that I am authorized to execute this application and that the information supplied is true and accurate. I acknowledge that this service is not affiliated with any government entity and allow US Filing Services to file on my behalf. I understand that submitting false information is a felony. I agree to the <a href="/terms" className="underline">Terms of Service</a>.
+                                            By checking this box, I hereby certify that I am authorized to execute this application and that the information supplied is true and accurate. I acknowledge that this service is not affiliated with any government entity and allow US Filing Services to file on my behalf. I understand that submitting false information is a felony. I agree to the <a href="/terms" className="underline hover:text-foreground transition-colors">Terms of Service</a>.
                                         </p>
                                         {form.formState.errors.termsAccepted && <p className="text-destructive text-xs font-semibold">{form.formState.errors.termsAccepted.message}</p>}
                                     </div>
@@ -435,20 +489,51 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                         )}
                     </form>
                 </CardContent>
-                <CardFooter className="flex justify-between bg-muted/10 py-4">
+
+                {/* Card Footer */}
+                <CardFooter className="flex justify-between bg-muted/20 border-t py-5 px-6">
                     {step > 1 ? (
-                        <Button variant="outline" onClick={() => setStep(step - 1)}>
+                        <Button variant="outline" onClick={() => { setStep(step - 1); setFormError(null); }} className="h-11">
+                            <ArrowLeft className="w-4 h-4 mr-2" />
                             Back
                         </Button>
                     ) : (
                         <div />
                     )}
 
-                    <Button onClick={step === 3 ? form.handleSubmit(onSubmit) : handleNext} className="min-w-[120px]">
-                        {step === 3 ? (form.formState.isSubmitting ? "Processing..." : "Pay & File Now") : "Next Step"}
+                    <Button
+                        onClick={step === 3 ? form.handleSubmit(onSubmit) : handleNext}
+                        disabled={form.formState.isSubmitting}
+                        className="min-w-[160px] h-11 shadow-md shadow-primary/20 hover:shadow-primary/30 transition-all"
+                    >
+                        {step === 3 ? (
+                            form.formState.isSubmitting ? "Processing..." : (
+                                <>
+                                    <Lock className="w-4 h-4 mr-2" />
+                                    Pay & File Now
+                                </>
+                            )
+                        ) : (
+                            <>
+                                Next Step
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </>
+                        )}
                     </Button>
                 </CardFooter>
             </Card>
-        </div >
+
+            {/* Trust footer */}
+            <div className="flex items-center justify-center gap-4 mt-6 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5" />
+                    256-bit SSL
+                </span>
+                <span className="text-border">|</span>
+                <span>Powered by Stripe</span>
+                <span className="text-border">|</span>
+                <span>PCI Level 1 Certified</span>
+            </div>
+        </div>
     )
 }

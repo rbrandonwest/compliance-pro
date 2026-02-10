@@ -2,30 +2,37 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+async function requireFilerOrAdmin() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || (session.user.role !== "FILER" && session.user.role !== "ADMIN")) {
+        throw new Error("Unauthorized: Filer or Admin access required");
+    }
+    return session;
+}
 
 export async function markFilingAsComplete(filingId: number) {
-    console.log(`Marking filing ${filingId} as COMPLETE`);
+    await requireFilerOrAdmin();
 
-    await prisma.filing.update({
-        where: { id: filingId },
-        data: {
-            status: 'SUCCESS',
-            updatedAt: new Date()
-        }
-    });
+    // Use a transaction to update both filing and entity atomically
+    await prisma.$transaction(async (tx) => {
+        const filing = await tx.filing.update({
+            where: { id: filingId },
+            data: {
+                status: 'SUCCESS',
+            }
+        });
 
-    // Also update the FiledEntity
-    const filing = await prisma.filing.findUnique({ where: { id: filingId } });
-    if (filing) {
-        await prisma.filedEntity.update({
+        await tx.filedEntity.update({
             where: { id: filing.businessId },
             data: {
                 lastFiled: new Date(),
                 inCompliance: true
             }
         });
-    }
+    });
 
     revalidatePath('/dashboard/filer');
 }
