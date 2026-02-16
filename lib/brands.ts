@@ -13,14 +13,14 @@ export interface BrandConfig {
 export const brands: Record<string, BrandConfig> = {
     "blue": {
         id: "blue",
-        name: "Business Annual Report Filing, LLC",
+        name: "Business Annual Report Filing",
         theme: "blue",
         description: "The trusted source for your annual filing needs.",
         email: "businessannualreportfiling@gmail.com",
     },
     "green": {
         id: "green",
-        name: "ComplianceFlow Modern",
+        name: "Business Annual Report Filing",
         theme: "green",
         description: "Fast, automated, and secure filing for your business.",
         email: "businessannualreportfiling@gmail.com",

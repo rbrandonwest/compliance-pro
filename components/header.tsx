@@ -34,7 +34,7 @@ export function Header() {
                         </div>
                         <div className="flex flex-col">
                             <span className="font-bold text-base tracking-tight leading-tight text-foreground">
-                                Annual Report Filing
+                                Business Annual Report Filing
                             </span>
                             <span className="text-[10px] font-medium text-muted-foreground leading-tight tracking-wide uppercase">
                                 Florida Business Compliance

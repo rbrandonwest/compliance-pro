@@ -91,7 +91,7 @@ export async function forgotPassword(email: string) {
 
     try {
         await resend.emails.send({
-            from: `ComplianceFlow <${process.env.EMAIL_FROM || 'noreply@complianceflow.com'}>`,
+            from: `Business Annual Report Filing <${process.env.EMAIL_FROM || 'noreply@businessannualreport.com'}>`,
             to: email,
             subject: 'Reset your password',
             html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`

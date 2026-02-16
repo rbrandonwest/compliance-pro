@@ -77,9 +77,9 @@ export async function POST(req: Request) {
         if (customerEmail) {
             try {
                 await resend.emails.send({
-                    from: `ComplianceFlow <${process.env.EMAIL_FROM || 'noreply@complianceflow.com'}>`,
+                    from: `Business Annual Report Filing <${process.env.EMAIL_FROM || 'noreply@businessannualreport.com'}>`,
                     to: customerEmail,
-                    subject: 'Filing Received - ComplianceFlow',
+                    subject: 'Filing Received - Business Annual Report Filing',
                     react: React.createElement(OrderConfirmationEmail, {
                         companyName: filing.entity.businessName,
                         year: filing.year,
