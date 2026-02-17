@@ -84,6 +84,23 @@ export async function resetUserPassword(userId: string) {
     return { success: true, tempPassword };
 }
 
+export async function deleteFiling(filingId: number) {
+    await requireAdmin();
+
+    const filing = await prisma.filing.findUnique({ where: { id: filingId } });
+    if (!filing) {
+        throw new Error("Filing not found");
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.artifact.deleteMany({ where: { filingId } });
+        await tx.filing.delete({ where: { id: filingId } });
+    });
+
+    revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/filer');
+}
+
 export async function toggleAutomation() {
     await requireAdmin();
 

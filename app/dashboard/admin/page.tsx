@@ -59,7 +59,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                     <TabsContent value="filings">
                         <div className="mt-4">
                             <h3 className="text-lg font-medium mb-4">Master Filing Queue</h3>
-                            <FilerDashboardPage searchParams={searchParams} />
+                            <FilerDashboardPage searchParams={searchParams} isAdmin={true} />
                         </div>
                     </TabsContent>
 

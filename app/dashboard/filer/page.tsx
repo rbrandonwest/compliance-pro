@@ -9,8 +9,9 @@ import Link from "next/link"
 import { FileText, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 
 import { SearchInput } from "@/components/dashboard/search-input"
+import { DeleteFilingButton } from "@/components/dashboard/delete-filing-button"
 
-export default async function FilerDashboardPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+export default async function FilerDashboardPage({ searchParams, isAdmin }: { searchParams?: Promise<{ q?: string }>; isAdmin?: boolean }) {
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
@@ -110,9 +111,14 @@ export default async function FilerDashboardPage({ searchParams }: { searchParam
                                                     {new Date(filing.createdAt).toLocaleDateString()}
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <Link href={`/dashboard/filer/workbench/${filing.id}`}>
-                                                        <Button size="sm">File Now</Button>
-                                                    </Link>
+                                                    <div className="flex items-center justify-end gap-1.5">
+                                                        <Link href={`/dashboard/filer/workbench/${filing.id}`}>
+                                                            <Button size="sm">File Now</Button>
+                                                        </Link>
+                                                        {isAdmin && (
+                                                            <DeleteFilingButton filingId={filing.id} businessName={filing.entity.businessName} />
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

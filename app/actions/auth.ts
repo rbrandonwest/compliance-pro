@@ -44,7 +44,7 @@ export async function registerUser(email: string, password: string, firstName?: 
         })
 
         if (exists) {
-            return { success: false, error: "User already exists" }
+            return { success: false, error: "User already exists", code: "USER_EXISTS" as const }
         }
 
         const hashedPassword = await hash(password, 12)

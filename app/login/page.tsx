@@ -1,19 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { Shield, Lock, ArrowRight } from "lucide-react"
+import { Shield, Lock, ArrowRight, Eye, EyeOff } from "lucide-react"
 
-export default function LoginPage() {
+function LoginForm() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const callbackUrl = searchParams.get("callbackUrl")
+    const isExisting = searchParams.get("existing") === "true"
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
 
@@ -32,7 +36,7 @@ export default function LoginPage() {
             setError("Invalid email or password")
             setIsLoading(false)
         } else {
-            router.push("/dashboard")
+            router.push(callbackUrl || "/dashboard")
             router.refresh()
         }
     }
@@ -65,6 +69,13 @@ export default function LoginPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
+                        {isExisting && (
+                            <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+                                An account with that email already exists. Please sign in below, or{" "}
+                                <Link href="/forgot-password" className="font-semibold underline">reset your password</Link> if needed.
+                                {callbackUrl && " You'll be redirected back to your filing after login."}
+                            </div>
+                        )}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
@@ -85,14 +96,23 @@ export default function LoginPage() {
                                         Forgot password?
                                     </Link>
                                 </div>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="h-11"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        className="h-11 pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
                             {error && (
                                 <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-lg font-medium">
@@ -137,5 +157,13 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginForm />
+        </Suspense>
     )
 }

@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { Shield, Lock, ArrowRight, CheckCircle } from "lucide-react"
+import { Shield, Lock, ArrowRight, CheckCircle, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
     const router = useRouter()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
 
@@ -39,7 +40,11 @@ export default function RegisterPage() {
                 router.push("/login")
             } else {
                 const data = await res.json()
-                setError(data.message || "Registration failed")
+                if (data.code === "USER_EXISTS") {
+                    router.push("/login?existing=true")
+                } else {
+                    setError(data.message || "Registration failed")
+                }
             }
         } catch (err) {
             setError("Something went wrong")
@@ -91,27 +96,51 @@ export default function RegisterPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Min. 8 characters"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="h-11"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="Min. 8 characters"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        className="h-11 pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                <ul className="text-xs text-muted-foreground space-y-0.5 mt-1">
+                                    <li className={password.length >= 8 ? "text-green-600" : ""}>At least 8 characters</li>
+                                    <li className={/[A-Z]/.test(password) ? "text-green-600" : ""}>One uppercase letter</li>
+                                    <li className={/[a-z]/.test(password) ? "text-green-600" : ""}>One lowercase letter</li>
+                                    <li className={/[0-9]/.test(password) ? "text-green-600" : ""}>One number</li>
+                                </ul>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    placeholder="Repeat your password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    required
-                                    className="h-11"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="confirmPassword"
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="Repeat your password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        required
+                                        className="h-11 pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
                             {error && (
                                 <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-lg font-medium">

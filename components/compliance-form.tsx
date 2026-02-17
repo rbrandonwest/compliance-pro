@@ -11,9 +11,10 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Check, Shield, Users, CreditCard, FileText, AlertCircle, MapPin, ArrowRight, ArrowLeft, Trash2, Plus, Lock } from "lucide-react"
+import { Check, Shield, Users, CreditCard, FileText, AlertCircle, MapPin, ArrowRight, ArrowLeft, Trash2, Plus, Lock, Eye, EyeOff } from "lucide-react"
 
 import { signIn, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 // Types matching DB
 export type EntityData = {
@@ -58,6 +59,8 @@ const steps = [
 export function ComplianceForm({ entity }: { entity: EntityData }) {
     const [step, setStep] = useState(1)
     const [formError, setFormError] = useState<string | null>(null)
+    const [showPassword, setShowPassword] = useState(false)
+    const router = useRouter()
 
     // EIN is the only editable header field — docId is locked to prevent tampering
     const [ein, setEin] = useState(entity.ein)
@@ -120,6 +123,10 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                 const regResult = await registerUser(data.email, data.password);
 
                 if (!regResult.success) {
+                    if (regResult.code === "USER_EXISTS") {
+                        router.push(`/login?callbackUrl=${encodeURIComponent(`/file/${entity.docId}`)}&existing=true`);
+                        return;
+                    }
                     setFormError("Registration failed: " + regResult.error);
                     return;
                 }
@@ -399,9 +406,24 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-sm font-medium">Password</Label>
-                                                <Input {...form.register("password")} type="password" placeholder="Create a password" className="h-11" />
+                                                <div className="relative">
+                                                    <Input {...form.register("password")} type={showPassword ? "text" : "password"} placeholder="Create a password" className="h-11 pr-10" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                    >
+                                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
+                                        <ul className="text-xs text-muted-foreground space-y-0.5">
+                                            <li className={((form.watch("password") || "").length >= 8) ? "text-green-600" : ""}>At least 8 characters</li>
+                                            <li className={/[A-Z]/.test(form.watch("password") || "") ? "text-green-600" : ""}>One uppercase letter</li>
+                                            <li className={/[a-z]/.test(form.watch("password") || "") ? "text-green-600" : ""}>One lowercase letter</li>
+                                            <li className={/[0-9]/.test(form.watch("password") || "") ? "text-green-600" : ""}>One number</li>
+                                        </ul>
                                         <p className="text-xs text-muted-foreground">
                                             We&apos;ll automatically create your account and sign you in so you can track this filing.
                                         </p>

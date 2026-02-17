@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, Clock } from "lucide-react"
 
 export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: string, initialStatus: string, needsFiling: boolean }) {
     const [status, setStatus] = useState(initialStatus)
@@ -44,7 +44,7 @@ export function StatusBadge({ docId, initialStatus, needsFiling }: { docId: stri
     }, [isPolling, docId]);
 
     if (status === 'PROCESSING' || status === 'PAID' || status === 'PENDING') {
-        return <Badge className="bg-blue-500 flex gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</Badge>
+        return <Badge className="bg-blue-500 flex gap-1"><Clock className="w-3 h-3" /> Pending</Badge>
     }
 
     if (status === 'SUCCESS') {

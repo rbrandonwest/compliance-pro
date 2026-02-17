@@ -72,7 +72,7 @@ export async function POST(req: Request) {
         });
 
         if (existingUser) {
-            return NextResponse.json({ message: "User already exists" }, { status: 400 });
+            return NextResponse.json({ message: "User already exists", code: "USER_EXISTS" }, { status: 409 });
         }
 
         const hashedPassword = await hash(password, 12);
