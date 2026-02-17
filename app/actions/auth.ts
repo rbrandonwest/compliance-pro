@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import { hash } from "bcryptjs"
-import { resend } from "@/lib/resend"
+import { sendEmail } from "@/lib/resend"
 import crypto from "crypto"
 
 function validatePassword(password: string): string | null {
@@ -89,15 +89,13 @@ export async function forgotPassword(email: string) {
 
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
 
-    try {
-        await resend.emails.send({
-            from: `Business Annual Report Filing <${process.env.EMAIL_FROM || 'noreply@businessannualreport.com'}>`,
-            to: email,
-            subject: 'Reset your password',
-            html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`
-        })
-    } catch (error) {
-        console.error("Resend error:", error)
+    const sent = await sendEmail({
+        to: email,
+        subject: 'Reset your password',
+        html: `<p>Click <a href="${resetLink}">here</a> to reset your password. This link expires in 1 hour.</p>`
+    })
+
+    if (!sent) {
         return { success: false, error: "Failed to send email" }
     }
 

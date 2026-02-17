@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { filingQueue } from "@/lib/queue";
-import { resend } from "@/lib/resend";
+import { sendEmail } from "@/lib/resend";
 import OrderConfirmationEmail from "@/components/emails/OrderConfirmationEmail";
 import * as React from 'react';
 
@@ -75,22 +75,17 @@ export async function POST(req: Request) {
         // Send Confirmation Email
         const customerEmail = session.customer_details?.email || session.customer_email;
         if (customerEmail) {
-            try {
-                await resend.emails.send({
-                    from: `Business Annual Report Filing <${process.env.EMAIL_FROM || 'noreply@businessannualreport.com'}>`,
-                    to: customerEmail,
-                    subject: 'Filing Received - Business Annual Report Filing',
-                    react: React.createElement(OrderConfirmationEmail, {
-                        companyName: filing.entity.businessName,
-                        year: filing.year,
-                        documentNumber: filing.entity.documentNumber,
-                    }),
-                });
-                console.log(`Confirmation email sent to ${customerEmail}`);
-            } catch (emailError) {
-                console.error("Failed to send confirmation email:", emailError);
-                // Don't fail the webhook for email errors
-            }
+            await sendEmail({
+                to: customerEmail,
+                subject: 'Filing Received - Business Annual Report Filing',
+                react: React.createElement(OrderConfirmationEmail, {
+                    companyName: filing.entity.businessName,
+                    year: filing.year,
+                    documentNumber: filing.entity.documentNumber,
+                }),
+            });
+        } else {
+            console.warn(`[WEBHOOK] No customer email found for session ${session.id} — skipping confirmation email.`);
         }
     }
 
