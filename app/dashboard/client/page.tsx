@@ -17,7 +17,7 @@ export default async function ClientDashboardPage() {
         redirect("/login")
     }
 
-    const filingYear = getFilingYear();
+    const filingYear = await getFilingYear();
 
     // Fetch user entities with their most recent filings (limit to avoid loading entire history)
     const entities = await prisma.filedEntity.findMany({

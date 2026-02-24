@@ -34,7 +34,7 @@ export type CheckoutPayload = z.infer<typeof checkoutPayloadSchema>;
  * After May 1st, the current year's report should already be filed,
  * so we target the next year.
  */
-export function getFilingYear(): number {
+export async function getFilingYear(): Promise<number> {
     const now = new Date();
     const floridaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
     const currentYear = floridaTime.getFullYear();
@@ -46,8 +46,8 @@ export function getFilingYear(): number {
  * Calculates the Unix timestamp (in seconds) for January 1st of the NEXT filing year.
  * Florida annual reports are due starting Jan 1st.
  */
-function getNextJan1stAnchor(): number {
-    const nextYear = getFilingYear();
+async function getNextJan1stAnchor(): Promise<number> {
+    const nextYear = await getFilingYear();
     const targetDate = new Date(`${nextYear + 1}-01-01T00:00:00-05:00`);
     return Math.floor(targetDate.getTime() / 1000);
 }
@@ -85,7 +85,7 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
         });
     }
 
-    const filingYear = getFilingYear();
+    const filingYear = await getFilingYear();
 
     const stateFeeCents = 0; // $0.00 base state fee (TESTING)
     const serviceFeeCents = 100; // $1.00 compliance service fee (TESTING)
@@ -210,7 +210,7 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
 
         if (isRecurring) {
             sessionOptions.subscription_data = {
-                billing_cycle_anchor: getNextJan1stAnchor(),
+                billing_cycle_anchor: await getNextJan1stAnchor(),
                 proration_behavior: 'none',
                 metadata: {
                     userId,
