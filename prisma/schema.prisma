@@ -101,6 +101,7 @@ model Filing {
   
   stripeSessionId  String?
   sunbizReceiptUrl String?
+  stripeReceiptUrl String?
   payloadSnapshot  Json?
   
   createdAt        DateTime @default(now())

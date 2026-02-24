@@ -36,7 +36,7 @@ const formSchema = z.object({
         name: z.string().min(1, "Name required"),
         title: z.string().min(1, "Title required"),
         address: z.string().min(5, "Address required"),
-    })),
+    })).min(1, "At least one officer is required"),
     registeredAgent: z.object({
         name: z.string().min(1, "RA Name required"),
         address: z.string().min(5, "RA Address required"),
@@ -443,15 +443,8 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Service Fee</span>
-                                        <span className="font-medium">{form.watch("addRaService") ? <span className="text-green-600">$0.00 (Waived)</span> : "$1.00"}</span>
+                                        <span className="font-medium">$1.00</span>
                                     </div>
-
-                                    {form.watch("addRaService") && (
-                                        <div className="flex justify-between text-sm animate-in fade-in slide-in-from-top-2">
-                                            <span className="text-muted-foreground">Registered Agent Service</span>
-                                            <span className="font-medium">$99.00</span>
-                                        </div>
-                                    )}
 
                                     <Separator />
 
@@ -464,10 +457,10 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                         />
                                         <div className="grid gap-1.5 leading-none">
                                             <label htmlFor="ra-service" className="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                Add Registered Agent Service (+$99/yr)
+                                                Add Annual Auto-Filing (Free)
                                             </label>
                                             <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Worry-free compliance. We automatically handle your annual report filing every year so you never miss a deadline.
+                                                Lock in this year's service fee and gain peace of mind knowing that your annual report will be filed each year on time.
                                             </p>
                                         </div>
                                     </div>
@@ -476,7 +469,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                     <div className="flex justify-between font-bold text-lg pt-1">
                                         <span>Total Due</span>
-                                        <span className="text-primary">${(0 + (form.watch("addRaService") ? 99 : 1)).toFixed(2)}</span>
+                                        <span className="text-primary">$1.00</span>
                                     </div>
                                     {form.watch("addRaService") && (
                                         <p className="text-xs text-muted-foreground text-right italic animate-in fade-in">

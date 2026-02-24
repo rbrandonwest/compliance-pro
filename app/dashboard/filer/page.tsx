@@ -151,7 +151,8 @@ export default async function FilerDashboardPage({ searchParams, isAdmin }: { se
                                             <th className="px-4 py-3">Doc ID</th>
                                             <th className="px-4 py-3">Requester</th>
                                             <th className="px-4 py-3">Completed At</th>
-                                            <th className="px-4 py-3">Receipt</th>
+                                            <th className="px-4 py-3">State Receipt</th>
+                                            <th className="px-4 py-3">Payment</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -169,9 +170,18 @@ export default async function FilerDashboardPage({ searchParams, isAdmin }: { se
                                                 <td className="px-4 py-3">
                                                     {filing.sunbizReceiptUrl && (
                                                         <a href={filing.sunbizReceiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                            View Receipt
+                                                            View PDF
                                                         </a>
                                                     )}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {filing.stripeReceiptUrl ? (
+                                                        <a href={filing.stripeReceiptUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">
+                                                            Receipt
+                                                        </a>
+                                                    ) : filing.stripeSessionId ? (
+                                                        <span className="text-muted-foreground text-xs">Legacy Fetch</span>
+                                                    ) : null}
                                                 </td>
                                             </tr>
                                         ))}

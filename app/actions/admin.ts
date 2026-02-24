@@ -101,22 +101,3 @@ export async function deleteFiling(filingId: number) {
     revalidatePath('/dashboard/filer');
 }
 
-export async function toggleAutomation() {
-    await requireAdmin();
-
-    const setting = await prisma.systemSetting.findUnique({
-        where: { key: 'automation_enabled' }
-    });
-
-    const currentValue = setting?.value === 'true';
-    const newValue = !currentValue;
-
-    await prisma.systemSetting.upsert({
-        where: { key: 'automation_enabled' },
-        update: { value: String(newValue) },
-        create: { key: 'automation_enabled', value: String(newValue), description: 'Global automation on/off switch' }
-    });
-
-    revalidatePath('/dashboard/admin');
-    return { enabled: newValue };
-}

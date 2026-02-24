@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { FilingHistoryDialog } from "@/components/dashboard/filing-history-dialog"
+import { getFilingYear } from "@/app/actions/checkout"
 
 export default async function ClientDashboardPage() {
     const session = await getServerSession(authOptions)
@@ -16,7 +17,7 @@ export default async function ClientDashboardPage() {
         redirect("/login")
     }
 
-    const currentYear = new Date().getFullYear();
+    const filingYear = getFilingYear();
 
     // Fetch user entities with their most recent filings (limit to avoid loading entire history)
     const entities = await prisma.filedEntity.findMany({
@@ -32,8 +33,8 @@ export default async function ClientDashboardPage() {
     // Summary stats
     const totalEntities = entities.length;
     const compliantCount = entities.filter(e => {
-        const lastFiledYear = e.lastFiled ? new Date(e.lastFiled).getFullYear() : 0;
-        return lastFiledYear === currentYear;
+        // Compliant = has a SUCCESS filing for the current filing year
+        return e.filings.some(f => f.year === filingYear && f.status === 'SUCCESS');
     }).length;
     const needsAttention = totalEntities - compliantCount;
 
@@ -73,7 +74,7 @@ export default async function ClientDashboardPage() {
                             </div>
                             <div>
                                 <div className="text-2xl font-bold text-green-600">{compliantCount}</div>
-                                <div className="text-xs text-muted-foreground font-medium">Compliant ({currentYear})</div>
+                                <div className="text-xs text-muted-foreground font-medium">Compliant ({filingYear})</div>
                             </div>
                         </div>
                         <div className="bg-card border border-border/50 rounded-xl p-5 flex items-center gap-4">
@@ -107,12 +108,13 @@ export default async function ClientDashboardPage() {
                         {entities.map((entity) => {
                             // Filter out PENDING_PAYMENT filings (not yet paid)
                             const paidFilings = entity.filings.filter(f => f.status !== 'PENDING_PAYMENT');
-                            const lastFiling = paidFilings[0];
 
-                            // Definition of Compliance:
-                            // If lastFiled date is in the current year OR we have a SUCCESS filing for current year.
-                            const lastFiledYear = entity.lastFiled ? new Date(entity.lastFiled).getFullYear() : 0;
-                            const isCompliant = lastFiledYear === currentYear || (lastFiling?.year === currentYear && lastFiling?.status === 'SUCCESS');
+                            // Find the most recent filing for the current filing year
+                            const filingForYear = paidFilings.find(f => f.year === filingYear);
+                            const lastFiling = paidFilings[0]; // Most recent filing overall (for badge display)
+
+                            // Compliant = has a SUCCESS filing for the current filing year
+                            const isCompliant = filingForYear?.status === 'SUCCESS';
 
                             // Determine display status for badge
                             let displayStatus = "PENDING";
@@ -121,11 +123,13 @@ export default async function ClientDashboardPage() {
                             if (isCompliant) {
                                 displayStatus = "SUCCESS";
                                 needsFilingAction = false;
-                            } else if (lastFiling) {
-                                displayStatus = lastFiling.status;
-                                if (['PENDING', 'PROCESSING', 'PAID', 'SUCCESS', 'MANUAL_REVIEW'].includes(displayStatus)) {
-                                    needsFilingAction = false; // Already in progress or done
+                            } else if (filingForYear) {
+                                // There's a filing for this year that isn't SUCCESS — show its status
+                                displayStatus = filingForYear.status;
+                                if (['PENDING', 'PROCESSING', 'PAID', 'MANUAL_REVIEW'].includes(displayStatus)) {
+                                    needsFilingAction = false; // Already in progress
                                 }
+                                // FAILED filings still need action — user can refile
                             }
 
                             return (
@@ -167,12 +171,12 @@ export default async function ClientDashboardPage() {
                                             {needsFilingAction ? (
                                                 <Link href={`/file/${entity.documentNumber}`}>
                                                     <Button size="sm" className="shadow-md shadow-red-500/20 hover:shadow-red-500/30 transition-shadow">
-                                                        File {currentYear} <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
+                                                        File {filingYear} <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
                                                     </Button>
                                                 </Link>
                                             ) : (
                                                 <Button variant="outline" size="sm" disabled className="opacity-60">
-                                                    {isCompliant ? `Filed ${currentYear}` : displayStatus}
+                                                    {isCompliant ? `Filed ${filingYear}` : displayStatus}
                                                 </Button>
                                             )}
                                         </div>

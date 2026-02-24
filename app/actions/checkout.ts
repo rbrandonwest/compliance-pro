@@ -13,7 +13,7 @@ const checkoutPayloadSchema = z.object({
         name: z.string().min(1),
         title: z.string().min(1),
         address: z.string().min(5),
-    })),
+    })).min(1, "At least one officer is required"),
     registeredAgent: z.object({
         name: z.string().min(1),
         address: z.string().min(5),
@@ -28,17 +28,28 @@ const checkoutPayloadSchema = z.object({
 export type CheckoutPayload = z.infer<typeof checkoutPayloadSchema>;
 
 /**
- * Determines the filing year based on the current date.
+ * Determines the filing year based on the current date in Florida's timezone.
  * Florida annual reports are due May 1st each year.
  * Before May 1st, we file for the current year.
  * After May 1st, the current year's report should already be filed,
  * so we target the next year.
  */
-function getFilingYear(): number {
+export function getFilingYear(): number {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const may1 = new Date(currentYear, 4, 1); // Month is 0-indexed
-    return now >= may1 ? currentYear + 1 : currentYear;
+    const floridaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const currentYear = floridaTime.getFullYear();
+    const may1 = new Date(currentYear, 4, 1);
+    return floridaTime >= may1 ? currentYear + 1 : currentYear;
+}
+
+/**
+ * Calculates the Unix timestamp (in seconds) for January 1st of the NEXT filing year.
+ * Florida annual reports are due starting Jan 1st.
+ */
+function getNextJan1stAnchor(): number {
+    const nextYear = getFilingYear();
+    const targetDate = new Date(`${nextYear + 1}-01-01T00:00:00-05:00`);
+    return Math.floor(targetDate.getTime() / 1000);
 }
 
 export async function createCheckoutSession(docId: string, payload: unknown) {
@@ -74,95 +85,120 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
         });
     }
 
-    // 2. Ensure FiledEntity exists (links user to business)
-    const entity = await prisma.filedEntity.upsert({
-        where: {
-            userId_documentNumber: {
-                userId,
-                documentNumber: docId
+    const filingYear = getFilingYear();
+
+    const stateFeeCents = 0; // $0.00 base state fee (TESTING)
+    const serviceFeeCents = 100; // $1.00 compliance service fee (TESTING)
+
+    // 2. Use a transaction to prevent race conditions (double-click, multiple tabs, etc.)
+    const filing = await prisma.$transaction(async (tx) => {
+        // Ensure FiledEntity exists (links user to business)
+        const entity = await tx.filedEntity.upsert({
+            where: {
+                userId_documentNumber: {
+                    userId,
+                    documentNumber: docId
+                },
             },
-        },
-        update: {},
-        create: {
-            userId,
-            documentNumber: docId,
-            businessName: busDoc.companyName,
-            inCompliance: false
-        }
-    });
-
-    // 3. Check for existing unpaid filing to prevent duplicates
-    const existingUnpaidFiling = await prisma.filing.findFirst({
-        where: {
-            businessId: entity.id,
-            userId,
-            year: getFilingYear(),
-            status: "PENDING_PAYMENT",
-        }
-    });
-
-    // Reuse existing unpaid filing or create new one
-    const filing = existingUnpaidFiling ?? await prisma.filing.create({
-        data: {
-            businessId: entity.id,
-            userId,
-            year: getFilingYear(),
-            status: "PENDING_PAYMENT",
-            payloadSnapshot: validatedPayload as object,
-        }
-    });
-
-    // Update payload snapshot if reusing existing filing
-    if (existingUnpaidFiling) {
-        await prisma.filing.update({
-            where: { id: filing.id },
-            data: { payloadSnapshot: validatedPayload as object }
+            update: {},
+            create: {
+                userId,
+                documentNumber: docId,
+                businessName: busDoc.companyName,
+                inCompliance: false
+            }
         });
+
+        // Check for ANY existing filing for this entity/year that isn't failed
+        // This prevents duplicates whether the user has an unpaid, pending, processing, or completed filing
+        const existingFiling = await tx.filing.findFirst({
+            where: {
+                businessId: entity.id,
+                userId,
+                year: filingYear,
+                status: { notIn: ["FAILED"] },
+            }
+        });
+
+        if (existingFiling) {
+            // If it's an unpaid filing, reuse it (user abandoned checkout and came back)
+            if (existingFiling.status === "PENDING_PAYMENT") {
+                await tx.filing.update({
+                    where: { id: existingFiling.id },
+                    data: {
+                        payloadSnapshot: {
+                            ...(validatedPayload as object),
+                            lockedStateFeeCents: stateFeeCents,
+                            lockedServiceFeeCents: serviceFeeCents,
+                        }
+                    }
+                });
+                return existingFiling;
+            }
+
+            // Otherwise, filing is already in progress or completed — block the duplicate
+            return null;
+        }
+
+        // No existing filing for this year — create a new one
+        return await tx.filing.create({
+            data: {
+                businessId: entity.id,
+                userId,
+                year: filingYear,
+                status: "PENDING_PAYMENT",
+                payloadSnapshot: {
+                    ...(validatedPayload as object),
+                    lockedStateFeeCents: stateFeeCents,
+                    lockedServiceFeeCents: serviceFeeCents,
+                }
+            }
+        });
+    });
+
+    // If null, there's already a paid/in-progress filing for this year
+    if (!filing) {
+        return {
+            success: false,
+            error: `A ${filingYear} annual report filing for this business is already in progress or completed. Check your dashboard for status.`
+        };
     }
 
-    // 4. Create Stripe Session
+    // 3. Create Stripe Session
     try {
-        const checkoutSession = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [
-                {
-                    price_data: {
-                        currency: 'usd',
-                        product_data: {
-                            name: 'Florida Annual Report Filing Fee',
-                            description: 'State mandated filing fee',
-                        },
-                        unit_amount: 0, // $0.00 (TESTING)
+        const isRecurring = validatedPayload.addRaService;
+
+        const lineItems: any[] = [
+            {
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: 'Florida Annual Report Filing Fee',
+                        description: 'State mandated filing fee',
                     },
-                    quantity: 1,
+                    unit_amount: stateFeeCents,
+                    ...(isRecurring ? { recurring: { interval: 'year' as const } } : {}),
                 },
-                ...(validatedPayload.addRaService ? [
-                    {
-                        price_data: {
-                            currency: 'usd',
-                            product_data: {
-                                name: 'Registered Agent Service',
-                                description: 'Annual Registered Agent Service (Includes waived Service Fee)',
-                            },
-                            unit_amount: 9900, // $99.00
-                        },
-                        quantity: 1,
-                    }
-                ] : [
-                    {
-                        price_data: {
-                            currency: 'usd',
-                            product_data: {
-                                name: 'Service Fee',
-                                description: 'ComplianceFlow Processing',
-                            },
-                            unit_amount: 100, // $1.00 (TESTING)
-                        },
-                        quantity: 1,
-                    }
-                ]),
-            ],
-            mode: 'payment',
+                quantity: 1,
+            },
+            {
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: 'Service Fee',
+                        description: 'ComplianceFlow Processing',
+                    },
+                    unit_amount: serviceFeeCents,
+                    ...(isRecurring ? { recurring: { interval: 'year' as const } } : {}),
+                },
+                quantity: 1,
+            }
+        ];
+
+        const sessionOptions: any = {
+            payment_method_types: ['card'],
+            line_items: lineItems,
+            mode: isRecurring ? 'subscription' : 'payment',
             success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?filed=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/file/${docId}`,
             metadata: {
@@ -170,7 +206,21 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
                 docId,
                 filingId: filing.id.toString(),
             }
-        });
+        };
+
+        if (isRecurring) {
+            sessionOptions.subscription_data = {
+                billing_cycle_anchor: getNextJan1stAnchor(),
+                proration_behavior: 'none',
+                metadata: {
+                    userId,
+                    docId,
+                    initialFilingId: filing.id.toString(),
+                },
+            };
+        }
+
+        const checkoutSession = await stripe.checkout.sessions.create(sessionOptions);
 
         // Save session ID to filing for tracking
         await prisma.filing.update({

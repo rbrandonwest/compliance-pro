@@ -5,12 +5,14 @@ interface OrderConfirmationEmailProps {
     companyName: string;
     year: number;
     documentNumber: string;
+    receiptUrl?: string | null;
 }
 
 export const OrderConfirmationEmail: React.FC<OrderConfirmationEmailProps> = ({
     companyName,
     year,
     documentNumber,
+    receiptUrl,
 }) => (
     <div style={{ fontFamily: 'sans-serif', lineHeight: '1.5', color: '#333' }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
@@ -36,6 +38,26 @@ export const OrderConfirmationEmail: React.FC<OrderConfirmationEmailProps> = ({
             <p>
                 If you have any questions, feel free to reply to this email.
             </p>
+            {receiptUrl && (
+                <div style={{ textAlign: 'center', marginTop: '30px', marginBottom: '30px' }}>
+                    <a
+                        href={receiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            backgroundColor: '#0070f3',
+                            color: '#ffffff',
+                            padding: '12px 24px',
+                            borderRadius: '5px',
+                            textDecoration: 'none',
+                            fontWeight: 'bold',
+                            display: 'inline-block'
+                        }}
+                    >
+                        View Payment Receipt
+                    </a>
+                </div>
+            )}
             <p>
                 Best regards,<br />
                 The Business Annual Report Filing Team

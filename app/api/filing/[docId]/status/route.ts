@@ -24,6 +24,7 @@ export async function GET(
         },
         include: {
             filings: {
+                where: { status: { not: 'PENDING_PAYMENT' } },
                 orderBy: { createdAt: 'desc' },
                 take: 1,
             }
@@ -31,13 +32,13 @@ export async function GET(
     });
 
     if (!filedEntity) {
-        return NextResponse.json({ status: 'NotFound' }, { status: 404 });
+        return NextResponse.json({ status: 'NOT_FOUND' }, { status: 404 });
     }
 
     const latestFiling = filedEntity.filings[0];
 
     return NextResponse.json({
-        status: latestFiling ? latestFiling.status : 'Pending',
-        filingId: latestFiling?.id
+        status: latestFiling ? latestFiling.status : 'NO_FILING',
+        filingId: latestFiling?.id ?? null,
     });
 }

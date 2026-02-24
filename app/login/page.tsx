@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +11,6 @@ import Link from "next/link"
 import { Shield, Lock, ArrowRight, Eye, EyeOff } from "lucide-react"
 
 function LoginForm() {
-    const router = useRouter()
     const searchParams = useSearchParams()
     const callbackUrl = searchParams.get("callbackUrl")
     const isExisting = searchParams.get("existing") === "true"
@@ -36,8 +35,11 @@ function LoginForm() {
             setError("Invalid email or password")
             setIsLoading(false)
         } else {
-            router.push(callbackUrl || "/dashboard")
-            router.refresh()
+            // Use hard navigation to ensure the session cookie is picked up
+            // by the server on the next request. router.push + router.refresh
+            // has a race condition in Next.js App Router where the refresh of
+            // the current page can cancel or delay the pending navigation.
+            window.location.href = callbackUrl || "/dashboard"
         }
     }
 

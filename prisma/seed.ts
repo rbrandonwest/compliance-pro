@@ -60,18 +60,7 @@ async function main() {
         },
     });
 
-    // 4. System Settings
-    await prisma.systemSetting.upsert({
-        where: { key: 'automation_enabled' },
-        update: {},
-        create: {
-            key: 'automation_enabled',
-            value: 'false', // Default to OFF
-            description: 'Master switch for background filing automation.'
-        }
-    });
-
-    console.log({ user, filedEntity, setting: 'automation_enabled=false' });
+    console.log({ user, filedEntity });
     console.log('Seeded database successfully.');
 }
 

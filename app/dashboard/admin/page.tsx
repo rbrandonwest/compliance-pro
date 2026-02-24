@@ -7,7 +7,6 @@ import prisma from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { SearchInput } from "@/components/dashboard/search-input"
 import { AdminActions } from "@/components/dashboard/admin-actions"
-import { AutomationToggle } from "@/components/dashboard/automation-toggle"
 import FilerDashboardPage from "../filer/page"
 
 export default async function AdminDashboardPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
@@ -19,11 +18,6 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
     const params = await searchParams;
     const query = params?.q || "";
-
-    const automationSetting = await prisma.systemSetting.findUnique({
-        where: { key: 'automation_enabled' }
-    });
-    const automationEnabled = automationSetting?.value === 'true';
 
     const users = await prisma.user.findMany({
         where: query ? {
@@ -47,8 +41,6 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                         <p className="text-muted-foreground">System Overview</p>
                     </div>
                 </header>
-
-                <AutomationToggle initialEnabled={automationEnabled} />
 
                 <Tabs defaultValue="filings" className="w-full">
                     <TabsList>
