@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# old build/deps directories from directory migration
+/node_modules_old/
+/.next_old/
