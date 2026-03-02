@@ -198,29 +198,29 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
         // 2. If recurring, add the subscription line items for NEXT year
         if (isRecurring) {
             lineItems.push({
-                 price_data: {
-                     currency: 'usd',
-                     product_data: {
-                         name: 'Florida Annual Report Filing Fee (Annual Renewal)',
-                         description: 'State mandated filing fee (Billed annually starting next January)',
-                     },
-                     unit_amount: stateFeeCents,
-                     recurring: { interval: 'year' as const },
-                 },
-                 quantity: 1,
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: 'Florida Annual Report Filing Fee (Annual Renewal)',
+                        description: 'State mandated filing fee (Billed annually starting next January)',
+                    },
+                    unit_amount: stateFeeCents,
+                    recurring: { interval: 'year' as const },
+                },
+                quantity: 1,
             });
 
             lineItems.push({
-                 price_data: {
-                     currency: 'usd',
-                     product_data: {
-                         name: 'Service Fee (Annual Renewal)',
-                         description: 'ComplianceFlow Processing (Billed annually starting next January)',
-                     },
-                     unit_amount: serviceFeeCents,
-                     recurring: { interval: 'year' as const },
-                 },
-                 quantity: 1,
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: 'Service Fee (Annual Renewal)',
+                        description: 'ComplianceFlow Processing (Billed annually starting next January)',
+                    },
+                    unit_amount: serviceFeeCents,
+                    recurring: { interval: 'year' as const },
+                },
+                quantity: 1,
             });
         }
 
@@ -242,7 +242,6 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
                 // The billing_cycle_anchor delays the *recurring* line items until January 1st of next year.
                 // The *one-time* line items are charged immediately today.
                 billing_cycle_anchor: await getNextJan1stAnchor(),
-                proration_behavior: 'none',
                 metadata: {
                     userId,
                     docId,
