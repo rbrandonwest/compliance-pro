@@ -214,6 +214,12 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
                 setup_future_usage: 'off_session',
             };
 
+            sessionOptions.custom_text = {
+                submit: {
+                    message: "By continuing, you agree to a $79.00 (Service Fee) + $150.00 (State Fee) annual subscription. You will be billed automatically every January 1st starting next year.",
+                }
+            };
+
             // Allow Stripe to create the subscription later by capturing a Customer object
             const user = await prisma.user.findUnique({ where: { id: userId } });
             if (user?.stripeCustomerId) {
