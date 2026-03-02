@@ -87,8 +87,8 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
 
     const filingYear = await getFilingYear();
 
-    const stateFeeCents = 0; // $0.00 base state fee (TESTING)
-    const serviceFeeCents = 100; // $1.00 compliance service fee (TESTING)
+    const stateFeeCents = 15000; // $150.00 base state fee
+    const serviceFeeCents = 7900; // $79.00 compliance service fee
 
     // 2. Use a transaction to prevent race conditions (double-click, multiple tabs, etc.)
     const filing = await prisma.$transaction(async (tx) => {
