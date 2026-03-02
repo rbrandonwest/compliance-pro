@@ -195,59 +195,37 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
             quantity: 1,
         });
 
-        // 2. If recurring, add the subscription line items for NEXT year
-        if (isRecurring) {
-            lineItems.push({
-                price_data: {
-                    currency: 'usd',
-                    product_data: {
-                        name: 'Florida Annual Report Filing Fee (Annual Renewal)',
-                        description: 'State mandated filing fee (Billed annually starting next January)',
-                    },
-                    unit_amount: stateFeeCents,
-                    recurring: { interval: 'year' as const },
-                },
-                quantity: 1,
-            });
-
-            lineItems.push({
-                price_data: {
-                    currency: 'usd',
-                    product_data: {
-                        name: 'Service Fee (Annual Renewal)',
-                        description: 'ComplianceFlow Processing (Billed annually starting next January)',
-                    },
-                    unit_amount: serviceFeeCents,
-                    recurring: { interval: 'year' as const },
-                },
-                quantity: 1,
-            });
-        }
-
         const sessionOptions: any = {
             payment_method_types: ['card'],
             line_items: lineItems,
-            mode: isRecurring ? 'subscription' : 'payment',
+            mode: 'payment',
             success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?filed=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/file/${docId}`,
             metadata: {
                 userId,
                 docId,
                 filingId: filing.id.toString(),
+                isRecurring: isRecurring ? 'true' : 'false',
             }
         };
 
         if (isRecurring) {
-            sessionOptions.subscription_data = {
-                // The trial_end delays the *recurring* line items until January 1st of next year.
-                // The *one-time* line items are charged immediately today.
-                trial_end: await getNextJan1stAnchor(),
-                metadata: {
-                    userId,
-                    docId,
-                    initialFilingId: filing.id.toString(),
-                },
+            sessionOptions.payment_intent_data = {
+                setup_future_usage: 'off_session',
             };
+
+            // Allow Stripe to create the subscription later by capturing a Customer object
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (user?.stripeCustomerId) {
+                sessionOptions.customer = user.stripeCustomerId;
+            } else {
+                sessionOptions.customer_creation = 'always';
+                if (validatedPayload.email) {
+                    sessionOptions.customer_email = validatedPayload.email;
+                } else if (user?.email) {
+                    sessionOptions.customer_email = user.email;
+                }
+            }
         }
 
         const checkoutSession = await stripe.checkout.sessions.create(sessionOptions);

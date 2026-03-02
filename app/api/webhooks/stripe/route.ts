@@ -85,7 +85,53 @@ export async function POST(req: Request) {
             }
         });
 
+        // Save stripeCustomerId if it was created
+        if (session.customer && userId) {
+            await prisma.user.updateMany({
+                where: { id: userId },
+                data: { stripeCustomerId: session.customer }
+            });
+        }
+
         console.log(`Filing ${filing.id} confirmed paid and marked PENDING.`);
+
+        // Programmatically create the subscription in the background to avoid messy checkout UI
+        if (session.metadata.isRecurring === 'true' && session.customer) {
+            try {
+                const now = new Date();
+                const floridaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                const currentYear = floridaTime.getFullYear();
+                const may1 = new Date(currentYear, 4, 1);
+                const nextYear = floridaTime >= may1 ? currentYear + 1 : currentYear;
+                const targetDate = new Date(`${nextYear + 1}-01-01T00:00:00-05:00`);
+                const anchor = Math.floor(targetDate.getTime() / 1000);
+
+                const payload = filing.payloadSnapshot as any;
+                const stateFeeCents = payload?.lockedStateFeeCents || 0;
+                const serviceFeeCents = payload?.lockedServiceFeeCents || 100;
+
+                // Create or fetch products
+                const searchList = await stripe.products.search({ query: 'name:"Florida Annual Report Filing Fee"' });
+                let stateProduct = searchList.data.find(p => p.name === 'Florida Annual Report Filing Fee (Annual Renewal)');
+                if (!stateProduct) stateProduct = await stripe.products.create({ name: 'Florida Annual Report Filing Fee (Annual Renewal)' });
+
+                let serviceProduct = searchList.data.find(p => p.name === 'Service Fee (Annual Renewal)');
+                if (!serviceProduct) serviceProduct = await stripe.products.create({ name: 'Service Fee (Annual Renewal)' });
+
+                await stripe.subscriptions.create({
+                    customer: session.customer,
+                    items: [
+                        { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: stateFeeCents, product: stateProduct.id } },
+                        { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: serviceFeeCents, product: serviceProduct.id } }
+                    ],
+                    trial_end: anchor,
+                    metadata: { userId, docId, initialFilingId: filing.id.toString() }
+                });
+                console.log(`[WEBHOOK] Successfully background-created annual subscription for setup ${session.id}`);
+            } catch (err) {
+                console.error("[WEBHOOK] Failed to background-create subscription:", err);
+            }
+        }
 
         // Send Confirmation Email
         const customerEmail = session.customer_details?.email || session.customer_email;
