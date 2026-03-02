@@ -239,9 +239,9 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
 
         if (isRecurring) {
             sessionOptions.subscription_data = {
-                // The billing_cycle_anchor delays the *recurring* line items until January 1st of next year.
+                // The trial_end delays the *recurring* line items until January 1st of next year.
                 // The *one-time* line items are charged immediately today.
-                billing_cycle_anchor: await getNextJan1stAnchor(),
+                trial_end: await getNextJan1stAnchor(),
                 metadata: {
                     userId,
                     docId,
