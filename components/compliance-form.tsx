@@ -439,11 +439,11 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                 <div className="bg-muted/20 p-5 rounded-xl space-y-3 border border-border/30">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">State Filing Fee</span>
-                                        <span className="font-medium">$0.00</span>
+                                        <span className="font-medium">$150.00</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Service Fee</span>
-                                        <span className="font-medium">$1.00</span>
+                                        <span className="font-medium">$79.00</span>
                                     </div>
 
                                     <Separator />
@@ -469,7 +469,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                     <div className="flex justify-between font-bold text-lg pt-1">
                                         <span>Total Due</span>
-                                        <span className="text-primary">$1.00</span>
+                                        <span className="text-primary">$229.00</span>
                                     </div>
                                     {form.watch("addRaService") && (
                                         <p className="text-xs text-muted-foreground text-right italic animate-in fade-in">
