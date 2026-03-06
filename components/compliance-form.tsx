@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -212,6 +213,16 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
                             <CardTitle className="text-xl font-bold tracking-tight mb-1.5">{entity.name}</CardTitle>
+
+                            {/* NEW: File for different business link */}
+                            <a
+                                href="/file"
+                                className="inline-flex items-center text-xs font-medium text-primary hover:underline mb-3"
+                            >
+                                <ArrowLeft className="w-3 h-3 mr-1" />
+                                File for a different business
+                            </a>
+
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">
                                 <FileText className="w-3.5 h-3.5" />
                                 <span className="font-mono">{entity.docId}</span>
@@ -246,7 +257,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                 )}
                             </div>
                         </div>
-                        <Badge variant="outline" className="bg-background font-semibold">{entity.currentYear} Annual Report</Badge>
+                        <Badge variant="outline" className="bg-background font-semibold shrink-0">{entity.currentYear} Annual Report</Badge>
                     </div>
                 </CardHeader>
 
@@ -279,14 +290,14 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium">Principal Address</Label>
-                                    <Input {...form.register("principalAddress")} className="h-11" />
+                                    <Textarea {...form.register("principalAddress")} className="resize-none min-h-[80px]" />
                                     <p className="text-xs text-muted-foreground">This must be a Florida street address (no P.O. boxes).</p>
                                     {form.formState.errors.principalAddress && <p className="text-destructive text-sm font-medium">{form.formState.errors.principalAddress.message}</p>}
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium">Mailing Address</Label>
-                                    <Input {...form.register("mailingAddress")} className="h-11" />
+                                    <Textarea {...form.register("mailingAddress")} className="resize-none min-h-[80px]" />
                                     {form.formState.errors.mailingAddress && <p className="text-destructive text-sm font-medium">{form.formState.errors.mailingAddress.message}</p>}
                                 </div>
                             </div>
@@ -315,7 +326,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                         </div>
                                         <div>
                                             <Label className="text-sm font-medium">Agent Address</Label>
-                                            <Input {...form.register("registeredAgent.address")} className="h-11 mt-1.5" />
+                                            <Textarea {...form.register("registeredAgent.address")} className="resize-none min-h-[80px] mt-1.5" />
                                             <p className="text-xs text-muted-foreground mt-1">Must be a Florida street address.</p>
                                             {form.formState.errors.registeredAgent?.address && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.registeredAgent.address.message}</p>}
                                         </div>
@@ -352,7 +363,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                                     </div>
                                                     <div className="col-span-12">
                                                         <Label className="text-sm font-medium">Address</Label>
-                                                        <Input {...form.register(`officers.${index}.address`)} placeholder="Street Address" className="h-11 mt-1.5" />
+                                                        <Textarea {...form.register(`officers.${index}.address`)} placeholder="Street Address" className="resize-none min-h-[80px] mt-1.5" />
                                                         {form.formState.errors.officers?.[index]?.address && <p className="text-destructive text-sm mt-1 font-medium">{form.formState.errors.officers[index].address.message}</p>}
                                                     </div>
                                                 </div>
@@ -445,6 +456,10 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                         <span className="text-muted-foreground">Service Fee</span>
                                         <span className="font-medium">$79.00</span>
                                     </div>
+                                    <div className="flex justify-between text-sm items-center">
+                                        <span className="text-muted-foreground">Credit Card Processing Fee (3%)</span>
+                                        <span className="font-medium">$6.87</span>
+                                    </div>
 
                                     <Separator />
 
@@ -469,7 +484,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
 
                                     <div className="flex justify-between font-bold text-lg pt-1">
                                         <span>Total Due</span>
-                                        <span className="text-primary">$229.00</span>
+                                        <span className="text-primary">$235.87</span>
                                     </div>
                                     {form.watch("addRaService") && (
                                         <p className="text-xs text-muted-foreground text-right italic animate-in fade-in">

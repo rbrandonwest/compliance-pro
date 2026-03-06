@@ -107,8 +107,9 @@ export async function POST(req: Request) {
                 const anchor = Math.floor(targetDate.getTime() / 1000);
 
                 const payload = filing.payloadSnapshot as any;
-                const stateFeeCents = payload?.lockedStateFeeCents || 0;
-                const serviceFeeCents = payload?.lockedServiceFeeCents || 100;
+                const stateFeeCents = payload?.lockedStateFeeCents || 15000;
+                const serviceFeeCents = payload?.lockedServiceFeeCents || 7900;
+                const processingFeeCents = Math.round((stateFeeCents + serviceFeeCents) * 0.03);
 
                 // Create or fetch products
                 const searchList = await stripe.products.search({ query: 'name:"Florida Annual Report Filing Fee"' });
@@ -118,11 +119,15 @@ export async function POST(req: Request) {
                 let serviceProduct = searchList.data.find(p => p.name === 'Service Fee (Annual Renewal)');
                 if (!serviceProduct) serviceProduct = await stripe.products.create({ name: 'Service Fee (Annual Renewal)' });
 
+                let feeProduct = searchList.data.find(p => p.name === 'Credit Card Processing Fee (3%)');
+                if (!feeProduct) feeProduct = await stripe.products.create({ name: 'Credit Card Processing Fee (3%)' });
+
                 await stripe.subscriptions.create({
                     customer: session.customer,
                     items: [
                         { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: stateFeeCents, product: stateProduct.id } },
-                        { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: serviceFeeCents, product: serviceProduct.id } }
+                        { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: serviceFeeCents, product: serviceProduct.id } },
+                        { price_data: { currency: 'usd', recurring: { interval: 'year' }, unit_amount: processingFeeCents, product: feeProduct.id } }
                     ],
                     trial_end: anchor,
                     metadata: { userId, docId, initialFilingId: filing.id.toString() }

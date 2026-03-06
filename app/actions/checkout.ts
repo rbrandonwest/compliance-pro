@@ -195,6 +195,22 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
             quantity: 1,
         });
 
+        // Calculate and add 3% Credit Card Processing Fee
+        const totalCents = stateFeeCents + serviceFeeCents;
+        const processingFeeCents = Math.round(totalCents * 0.03);
+
+        lineItems.push({
+            price_data: {
+                currency: 'usd',
+                product_data: {
+                    name: 'Credit Card Processing Fee (3%)',
+                    description: 'Standard payment gateway fee',
+                },
+                unit_amount: processingFeeCents,
+            },
+            quantity: 1,
+        });
+
         const sessionOptions: any = {
             payment_method_types: ['card'],
             line_items: lineItems,
@@ -216,7 +232,7 @@ export async function createCheckoutSession(docId: string, payload: unknown) {
 
             sessionOptions.custom_text = {
                 submit: {
-                    message: "By continuing, you agree to a $79.00 (Service Fee) + $150.00 (State Fee) annual subscription. You will be billed automatically every January 1st starting next year.",
+                    message: `By continuing, you agree to a $79.00 (Service) + $150.00 (State) + $6.87 (3% CC Fee) annual subscription. You will be billed automatically every January 1st starting next year.`,
                 }
             };
 
