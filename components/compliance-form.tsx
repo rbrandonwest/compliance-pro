@@ -16,6 +16,7 @@ import { Check, Shield, Users, CreditCard, FileText, AlertCircle, MapPin, ArrowR
 
 import { signIn, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { track } from "@vercel/analytics/react"
 
 // Types matching DB
 export type EntityData = {
@@ -104,6 +105,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
         }
 
         if (valid) {
+            track(`Form_Step_${step}_Completed`, { docId: entity.docId });
             setStep(step + 1);
             window.scrollTo(0, 0);
         }
@@ -152,6 +154,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                 ...data
             };
 
+            track('Form_Completed_Redirect_To_Checkout', { docId: entity.docId, isRecurring: data.addRaService });
             const result = await createCheckoutSession(entity.docId, payload);
 
             if (result.success && result.url) {

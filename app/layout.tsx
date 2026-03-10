@@ -6,6 +6,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Providers } from "@/components/providers";
 import { Analytics } from "@vercel/analytics/react";
+import { PostHogProvider } from "@/components/posthog-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,14 +52,16 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
-          <Header />
-          <main>
-            {children}
-          </main>
-          <Footer />
-        </Providers>
-        <Analytics />
+        <PostHogProvider>
+          <Providers>
+            <Header />
+            <main>
+              {children}
+            </main>
+            <Footer />
+          </Providers>
+          <Analytics />
+        </PostHogProvider>
       </body>
     </html>
   );
