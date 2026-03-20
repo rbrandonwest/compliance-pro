@@ -6,6 +6,7 @@ import { Search, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useDebounce } from "use-debounce"
+import { track } from "@vercel/analytics/react"
 
 interface Company {
     documentNumber: string
@@ -73,6 +74,9 @@ export function BusinessSearch() {
                                 key={company.documentNumber}
                                 className="px-4 py-3 hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
                                 onClick={() => {
+                                    track('Search_Result_Clicked', {
+                                        docId: company.documentNumber
+                                    })
                                     router.push(`/file/${company.documentNumber}`)
                                     setOpen(false)
                                 }}

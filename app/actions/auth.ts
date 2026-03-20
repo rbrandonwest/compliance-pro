@@ -70,7 +70,8 @@ export async function registerUser(email: string, password: string, firstName?: 
 export async function forgotPassword(email: string) {
     if (!email) return { success: false, error: "Email required" }
 
-    const user = await prisma.user.findUnique({ where: { email } })
+    const normalizedEmail = email.toLowerCase().trim()
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
     if (!user) {
         // Return success even if user not found to prevent enumeration
         return { success: true }
