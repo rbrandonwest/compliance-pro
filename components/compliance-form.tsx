@@ -478,7 +478,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                                 Add Annual Auto-Filing (Free)
                                             </label>
                                             <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Lock in this year's service fee and gain peace of mind knowing that your annual report will be filed each year on time.
+                                                Lock in this year's service fee and gain peace of mind knowing that your annual report will be filed each year on time. (You will be charged automatically at the start of each filing season. You can cancel at any time before the following year's filing by emailing Business Annual Report Filing).
                                             </p>
                                         </div>
                                     </div>
@@ -512,7 +512,7 @@ export function ComplianceForm({ entity }: { entity: EntityData }) {
                                             Legal Certification & Agreement
                                         </label>
                                         <p className="text-xs text-muted-foreground leading-relaxed">
-                                            By checking this box, I hereby certify that I am authorized to execute this application and that the information supplied is true and accurate. I acknowledge that this service is not affiliated with any government entity and allow US Filing Services to file on my behalf. I understand that submitting false information is a felony. I agree to the <a href="/terms" className="underline hover:text-foreground transition-colors">Terms of Service</a>.
+                                            By checking this box, I hereby certify that I am authorized to execute this application and that the information supplied is true and accurate. I acknowledge that this service is not affiliated with any government entity and allow Business Annual Report Filing to file on my behalf. I understand that submitting false information is a felony. I agree to the <a href="/terms" className="underline hover:text-foreground transition-colors">Terms of Service</a>.
                                         </p>
                                         {form.formState.errors.termsAccepted && <p className="text-destructive text-xs font-semibold">{form.formState.errors.termsAccepted.message}</p>}
                                     </div>
